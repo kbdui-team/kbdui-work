@@ -1,8 +1,10 @@
-let todos = [];
+// ... existing code ...
 
 function addTodo() {
     const input = document.getElementById('todoInput');
+    const prioritySelect = document.getElementById('prioritySelect');
     const text = input.value.trim();
+    const priority = prioritySelect.value;
     
     if (text === '') {
         alert('请输入待办事项');
@@ -12,35 +14,36 @@ function addTodo() {
     const todo = {
         id: Date.now(),
         text: text,
-        completed: false
+        completed: false,
+        priority: priority
     };
     
     todos.push(todo);
     input.value = '';
+    prioritySelect.value = 'medium';
     renderTodos();
 }
 
-function toggleTodo(id) {
-    todos = todos.map(todo => 
-        todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    );
-    renderTodos();
-}
-
-function deleteTodo(id) {
-    todos = todos.filter(todo => todo.id !== id);
-    renderTodos();
-}
+// ... existing code ...
 
 function renderTodos() {
     const todoList = document.getElementById('todoList');
     todoList.innerHTML = '';
     
-    todos.forEach(todo => {
+    // 按优先级排序
+    const sortedTodos = [...todos].sort((a, b) => {
+        const priorityOrder = { high: 3, medium: 2, low: 1 };
+        return priorityOrder[b.priority] - priorityOrder[a.priority];
+    });
+    
+    sortedTodos.forEach(todo => {
         const li = document.createElement('li');
-        li.className = `todo-item ${todo.completed ? 'completed' : ''}`;
+        li.className = `todo-item ${todo.completed ? 'completed' : ''} priority-${todo.priority}`;
         li.innerHTML = `
-            <span>${todo.text}</span>
+            <span>
+                <span class="priority-badge ${todo.priority}">${getPriorityText(todo.priority)}</span>
+                ${todo.text}
+            </span>
             <div class="todo-actions">
                 <button class="btn-complete" onclick="toggleTodo(${todo.id})">
                     ${todo.completed ? '取消完成' : '完成'}
@@ -52,9 +55,13 @@ function renderTodos() {
     });
 }
 
-// 允许回车键添加待办事项
-document.getElementById('todoInput').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        addTodo();
-    }
-});
+function getPriorityText(priority) {
+    const priorities = {
+        high: '高优先级',
+        medium: '中优先级',
+        low: '低优先级'
+    };
+    return priorities[priority] || '中优先级';
+}
+
+// ... existing code ...

@@ -82,3 +82,59 @@ button:hover {
 .btn-delete {
     background-color: #dc3545;
 }
+// ... existing code ...
+
+.input-section {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#todoInput {
+    flex: 2;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+#prioritySelect {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+}
+
+.priority-badge {
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.priority-badge.high {
+    background-color: #ff6b6b;
+    color: white;
+}
+
+.priority-badge.medium {
+    background-color: #ffd93d;
+    color: #333;
+}
+
+.priority-badge.low {
+    background-color: #6bcf7f;
+    color: white;
+}
+
+.todo-item.priority-high {
+    border-left: 4px solid #ff6b6b;
+}
+
+.todo-item.priority-medium {
+    border-left: 4px solid #ffd93d;
+}
+
+.todo-item.priority-low {
+    border-left: 4px solid #6bcf7f;
+}
