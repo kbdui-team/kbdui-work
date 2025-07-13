@@ -98,7 +98,7 @@
         </el-form>
         
         <div class="register-footer">
-          <p>已有账户？<el-link type="primary" :underline="false">立即登录</el-link></p>
+          <p>已有账户？<el-link type="primary" :underline="false" @click="goToLogin">立即登录</el-link></p>
         </div>
       </div>
     </div>
@@ -108,7 +108,9 @@
   import { ref, reactive } from 'vue'
   import { ElMessage } from 'element-plus'
   import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
+  import { useRouter } from 'vue-router'
   
+  const router = useRouter()
   const registerFormRef = ref()
   const loading = ref(false)
   
@@ -212,6 +214,10 @@
         ElMessage.error('请完善注册信息')
       }
     })
+  }
+
+  const goToLogin = () => {
+    router.push('/')
   }
   </script>
   
