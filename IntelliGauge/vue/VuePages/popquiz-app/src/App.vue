@@ -1,11 +1,9 @@
 <template>
-       
-        <register/>
+        <RouterView></RouterView>
 </template>
 
 <script setup lang="ts">
-//import login from './views/Login.vue'
-import register from './views/Register.vue';
+import { RouterView } from 'vue-router'
 </script>
 
 <style scoped>
