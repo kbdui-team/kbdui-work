@@ -244,7 +244,7 @@
   // 用户信息数据
   const userInfo = reactive({
     name: '张三',
-    role: '学生',
+    role: '教师',
     class: '计算机科学与技术2021级1班',
     studentId: '2021001001',
     phone: '138****8888',

@@ -23,6 +23,8 @@ import TeacherHomePage from './views/teacher-homepage.vue' // 教师首页
 import changeInfo from './views/changeInfo.vue' // 修改个人信息页面
 import Collection from './views/Collection.vue' // 模块输入页面
 import OratorResult from './views/orator_result.vue' // 练习结果页面
+
+
 const routes = [
   { path: '/', component: Login },
   { path: '/register', component: Register },
