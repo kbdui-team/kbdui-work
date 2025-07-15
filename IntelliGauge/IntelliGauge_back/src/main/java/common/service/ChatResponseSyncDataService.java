@@ -1,10 +1,8 @@
 package common.service;
-
-import com.hugai.chatsdk.common.entity.ChatSdkStorageResponse;
-import com.hugai.chatsdk.common.entity.account.ChatSdkAccount;
-import com.hugai.chatsdk.common.entity.session.RecordData;
 import com.hugai.common.modules.entity.session.model.SessionRecordModel;
-
+import common.entity.ChatSdkStorageResponse;
+import common.entity.session.RecordData;
+import common.entity.account.ChatSdkAccount;
 import java.util.List;
 
 /**
