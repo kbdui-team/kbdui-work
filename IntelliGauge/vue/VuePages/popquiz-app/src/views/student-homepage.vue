@@ -88,20 +88,14 @@
               <div 
                 class="menu-item" 
                 :class="{ active: activeItem === 'quiz' }"
-                @click="navigateTo('quiz')"
+                @click="showquiz = true"
               >
                 <el-icon><EditPen /></el-icon>
                 <span>在线答题</span>
                 <el-badge :value="3" class="item-badge" />
               </div>
-              <div 
-                class="menu-item"
-                :class="{ active: activeItem === 'Collection' }"
-                @click="navigateTo('Collection')"
-              >
-                <el-icon><Notebook /></el-icon>
-                <span>模式选择</span>
-              </div>
+
+        
 
               <div 
                 class="menu-item"
@@ -191,74 +185,60 @@
           </div>
         </div>
         
-        <!-- 左侧底部页脚 -->
-        <div class="sidebar-footer">
-          <div class="sidebar-footer-content">
-            <p>&copy; 2024 PopQuiz 在线学习平台.</p>
-            <p>当前版本: v2.1.0</p>
-            <p>最后更新: {{ lastUpdateTime }}</p>
-          </div>
-        </div>
       </div>
       
       <!-- 右侧内容区域 -->
-      <div class="main-content">
-        <div class="content-header">
-          <div class="breadcrumb">
-            <el-breadcrumb separator="/">
-              <el-breadcrumb-item>首页</el-breadcrumb-item>
-              <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
-            </el-breadcrumb>
-          </div>
-          <div class="header-actions">
-            <el-button type="text" @click="refreshPage">
-              <el-icon><Refresh /></el-icon>
-            </el-button>
-            <el-button type="text" @click="toggleFullscreen">
-              <el-icon><FullScreen /></el-icon>
-            </el-button>
-          </div>
+    <div class="main-content">
+      <div class="content-header">
+        <div class="breadcrumb">
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item>首页</el-breadcrumb-item>
+            <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
-        
-        <div class="content-body">
-          <router-view />
-        </div>
-        
-        <!-- 右侧页脚，与内容区域风格一致 -->
-        <div class="main-footer">
-          <div class="main-footer-content">
-            <div class="footer-left">
-              <p>&copy; 2024 PopQuiz 在线学习平台. 保留所有权利.</p>
-              <p>当前版本: v2.1.0 | 最后更新: {{ lastUpdateTime }}</p>
-            </div>
-            <div class="footer-right">
-              <div class="footer-links">
-                <el-link href="#" :underline="false" class="footer-link">使用帮助</el-link>
-                <el-divider direction="vertical" />
-                <el-link href="#" :underline="false" class="footer-link">联系我们</el-link>
-                <el-divider direction="vertical" />
-                <el-link href="#" :underline="false" class="footer-link">隐私政策</el-link>
-              </div>
-            </div>
-          </div>
+        <div class="header-actions">
+          <el-button type="text" @click="refreshPage">
+            <el-icon><Refresh /></el-icon>
+          </el-button>
+          <el-button type="text" @click="toggleFullscreen">
+            <el-icon><FullScreen /></el-icon>
+          </el-button>
         </div>
       </div>
+
+      <div class="content-body">
+        <!-- 显示答题组件 -->
+        <QuizComponent 
+          v-if="showquiz" 
+          :quiz-data="currentQuizData"
+          @back-to-home="handleBackToHome"
+          @quiz-complete="handleQuizComplete"
+        />
+        <!-- 其他路由内容 -->
+        <router-view v-else />
+      </div>
+    
+      </div>
     </div>
+    <AppFooter :lastUpdateTime="lastUpdateTime" />
   </template>
   
   <script setup lang="ts">
-  import { ref, reactive, computed } from 'vue'
-  import { useRouter } from 'vue-router'
-  import { ElMessage, ElMessageBox } from 'element-plus'
-  import {
-    User, School, Postcard, Phone, Message, Calendar,
-    Reading, EditPen, Notebook, View, TrendCharts, DataAnalysis,
-    Trophy, Promotion, Setting, Bell, SwitchButton,
-    Refresh, FullScreen
-  } from '@element-plus/icons-vue'
-  
-  const router = useRouter()
-  const activeItem = ref('quiz')
+import { ref, reactive, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import AppFooter from '@/components/AppFooter.vue'
+import {
+  User, School, Postcard, Phone, Message, Calendar,
+  Reading, EditPen, Notebook, View, TrendCharts, DataAnalysis,
+  Trophy, Promotion, Setting, Bell, SwitchButton,
+  Refresh, FullScreen
+} from '@element-plus/icons-vue'
+import QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
+
+const router = useRouter()
+const activeItem = ref('quiz')
+const showquiz = ref(false)
   
   // 用户信息数据
   const userInfo = reactive({
@@ -276,6 +256,39 @@
       rank: 5
     }
   })
+
+  // 当前答题数据
+const currentQuizData = ref({
+  title: 'JavaScript 基础知识测试',
+  category: '前端开发',
+  difficulty: 'medium',
+  questions: [
+    {
+      question: '以下哪个方法可以向数组末尾添加元素？',
+      options: ['push()', 'pop()', 'shift()', 'unshift()'],
+      correct: 0,
+      explanation: 'push() 方法将一个或多个元素添加到数组的末尾，并返回该数组的新长度。',
+      image: null
+    },
+    {
+      question: 'JavaScript 中 == 和 === 的区别是什么？',
+      options: [
+        '没有区别',
+        '== 比较值，=== 比较值和类型',
+        '== 比较类型，=== 比较值',
+        '=== 性能更差'
+      ],
+      correct: 1,
+      explanation: '== 会进行类型转换后比较，而 === 会同时比较值和类型，不进行类型转换。'
+    },
+    {
+      question: '以下哪个不是 JavaScript 的基本数据类型？',
+      options: ['string', 'number', 'array', 'boolean'],
+      correct: 2,
+      explanation: 'array 是引用数据类型，不是基本数据类型。JavaScript 的基本数据类型有：string、number、boolean、null、undefined、symbol、bigint。'
+    }
+  ]
+})
   
   // 当前页面标题
   const currentPageTitle = computed(() => {
@@ -292,16 +305,46 @@
     }
     return titleMap[activeItem.value] || '个人中心'
   })
-  
   // 最后更新时间
   const lastUpdateTime = ref('2024-07-14 14:30')
   
   // 导航方法
-  const navigateTo = (route: string) => {
-    activeItem.value = route
-    router.push(`/${route}`)
-    ElMessage.success(`正在跳转到${currentPageTitle.value}`)
+  const navigateTo = (item: string) => {
+  activeItem.value = item
+  showquiz.value = false
+  
+  // 根据不同的选项进行路由跳转或操作
+  const routeMap: Record<string, string> = {
+    'Collection': '/Collection',
+    'orator_result': '/orator_result',
+    'changeInfo': '/changeInfo'
   }
+  
+  if (routeMap[item]) {
+    router.push(routeMap[item])
+  } else {
+    ElMessage.info(`切换到${currentPageTitle.value}`)
+  }
+}
+const handleBackToHome = () => {
+  showquiz.value = false
+  activeItem.value = 'home'
+  ElMessage.info('返回首页')
+}
+
+const handleQuizComplete = (results: any) => {
+  console.log('答题完成，结果：', results)
+  
+  // 更新用户统计数据
+  userInfo.stats.completedQuizzes++
+  userInfo.stats.averageScore = Math.round(
+    (userInfo.stats.averageScore * (userInfo.stats.completedQuizzes - 1) + 
+     (results.score / (results.totalQuestions * 100)) * 100) / 
+    userInfo.stats.completedQuizzes
+  )
+  
+  ElMessage.success(`测试完成！得分：${results.score}，等级：${results.grade}`)
+}
   
   // 刷新页面
   const refreshPage = () => {

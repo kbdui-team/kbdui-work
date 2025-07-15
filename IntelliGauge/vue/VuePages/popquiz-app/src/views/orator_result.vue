@@ -3,7 +3,7 @@
       <!-- 头部导航 -->
       <div class="header">
         <el-breadcrumb separator="/">
-          <el-breadcrumb-item>首页</el-breadcrumb-item>
+          <el-breadcrumb-item @click="goHome" style="cursor:pointer;">首页</el-breadcrumb-item>
           <el-breadcrumb-item>演讲答题系统</el-breadcrumb-item>
         </el-breadcrumb>
       </div>
@@ -226,7 +226,7 @@
                     <span>实时排名</span>
                   </div>
 </template>
-                  <div class="ranking-list">
+                  <div class="ranking-list scrollable-ranking-list">
                     <div 
                       v-for="(student, index) in rankings" 
                       :key="student.id"
@@ -249,6 +249,7 @@
   </template>
   
   <script lang="ts">
+  import { useRouter } from 'vue-router'
   export default {
     name: 'SpeechQuizSystem',
     data() {
@@ -344,9 +345,30 @@
           { id: 2, name: '李四', accuracy: 95 },
           { id: 3, name: '王五', accuracy: 92 },
           { id: 1, name: '张三', accuracy: 85 },
+          { id: 2, name: '李四', accuracy: 95 },
+          { id: 3, name: '王五', accuracy: 92 },
+          { id: 1, name: '张三', accuracy: 85 },
+          { id: 2, name: '李四', accuracy: 95 },
+          { id: 3, name: '王五', accuracy: 92 },
+          { id: 1, name: '张三', accuracy: 85 },
+          { id: 2, name: '李四', accuracy: 95 },
+          { id: 3, name: '王五', accuracy: 92 },
+          { id: 1, name: '张三', accuracy: 85 },
+          { id: 2, name: '李四', accuracy: 95 },
+          { id: 3, name: '王五', accuracy: 92 },
+          { id: 1, name: '张三', accuracy: 85 },
+          
           { id: 4, name: '赵六', accuracy: 78 }
         ]
       }
+    },
+    
+    setup() {
+      const router = useRouter();
+      const goHome = () => {
+        router.push('/student-homepage');
+      };
+      return { goHome };
     },
     
     methods: {
@@ -739,6 +761,50 @@
     .quiz-list {
       grid-template-columns: 1fr;
     }
+  }
+
+  .scrollable-ranking-list {
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .ranking-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    background: #fff;
+    transition: background 0.2s;
+  }
+  .ranking-item:last-child {
+    border-bottom: none;
+  }
+  .ranking-item.my-rank {
+    background: #f0f7ff;
+    font-weight: bold;
+  }
+  .rank-number {
+    width: 36px;
+    text-align: center;
+    font-size: 16px;
+    color: #667eea;
+    font-weight: 600;
+  }
+  .rank-info {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .rank-name {
+    font-size: 15px;
+    color: #333;
+  }
+  .rank-score {
+    font-size: 15px;
+    color: #52c41a;
+    font-weight: 500;
   }
   </style>
   
