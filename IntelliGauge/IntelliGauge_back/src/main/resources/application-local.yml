@@ -1,5 +1,5 @@
 server:
-  port: 7100
+  port: 5555
   servlet:
     context-path: /
   tomcat:
@@ -8,6 +8,11 @@ server:
     threads:
       max: 300
       min-spare: 10
+
+#deepseek配置
+deepseek:
+  api:
+    key: sk-8ddc7f72619c4a6083edc34ff7968132
 
 # 日志配置
 logging:
