@@ -67,15 +67,6 @@
             </div>
             <div class="menu-items">
               <div 
-                class="menu-item" 
-                :class="{ active: activeItem === 'quiz' }"
-                @click="navigateTo('quiz')"
-              >
-                <el-icon><EditPen /></el-icon>
-                <span>在线答题</span>
-                <el-badge :value="3" class="item-badge" />
-              </div>
-              <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'Collection' }"
                 @click="navigateTo('Collection')"
@@ -90,7 +81,7 @@
                 @click="navigateTo('review')"
               >
                 <el-icon><View /></el-icon>
-                <span>错题回顾</span>
+                <span>教学记录</span>
               </div>
 
               <div 
@@ -99,7 +90,7 @@
                 @click="navigateTo('orator_result')"
               >
                 <el-icon><View /></el-icon>
-                <span>练习结果</span>
+                <span>练习记录</span>
               </div>
             </div>
           </div>
@@ -108,7 +99,7 @@
           <div class="menu-section">
             <div class="section-header">
               <el-icon><TrendCharts /></el-icon>
-              <span>成绩模块</span>
+              <span>管理模块</span>
             </div>
             <div class="menu-items">
               <div 
@@ -117,7 +108,7 @@
                 @click="navigateTo('scores')"
               >
                 <el-icon><DataAnalysis /></el-icon>
-                <span>成绩查询</span>
+                <span>学生管理</span>
               </div>
               <div 
                 class="menu-item"
@@ -125,7 +116,7 @@
                 @click="navigateTo('ranking')"
               >
                 <el-icon><Trophy /></el-icon>
-                <span>排行榜</span>
+                <span>成绩管理</span>
               </div>
               <div 
                 class="menu-item"
@@ -133,7 +124,7 @@
                 @click="navigateTo('progress')"
               >
                 <el-icon><Promotion /></el-icon>
-                <span>学习进度</span>
+                <span>学习进度1</span>
               </div>
             </div>
           </div>
@@ -171,15 +162,6 @@
             </div>
           </div>
         </div>
-        
-        <!-- 左侧底部页脚 -->
-        <div class="sidebar-footer">
-          <div class="sidebar-footer-content">
-            <p>&copy; 2024 PopQuiz 在线学习平台.</p>
-            <p>当前版本: v2.1.0</p>
-            <p>最后更新: {{ lastUpdateTime }}</p>
-          </div>
-        </div>
       </div>
       
       <!-- 右侧内容区域 -->
@@ -188,7 +170,7 @@
           <div class="breadcrumb">
             <el-breadcrumb separator="/">
               <el-breadcrumb-item>首页</el-breadcrumb-item>
-              <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
+              <el-breadcrumb-item>多模态输入收集</el-breadcrumb-item>
             </el-breadcrumb>
           </div>
           <div class="header-actions">
@@ -202,27 +184,16 @@
         </div>
         
         <div class="content-body">
-          <router-view />
+          <StudentManagementComponent v-if="activeItem === 'scores'" />
+          <CollectComponent 
+            v-else
+            @uploadSuccess="handleUploadSuccess"
+            @uploadError="handleUploadError"
+          />
         </div>
         
-        <!-- 右侧页脚，与内容区域风格一致 -->
-        <div class="main-footer">
-          <div class="main-footer-content">
-            <div class="footer-left">
-              <p>&copy; 2024 PopQuiz 在线学习平台. 保留所有权利.</p>
-              <p>当前版本: v2.1.0 | 最后更新: {{ lastUpdateTime }}</p>
-            </div>
-            <div class="footer-right">
-              <div class="footer-links">
-                <el-link href="#" :underline="false" class="footer-link">使用帮助</el-link>
-                <el-divider direction="vertical" />
-                <el-link href="#" :underline="false" class="footer-link">联系我们</el-link>
-                <el-divider direction="vertical" />
-                <el-link href="#" :underline="false" class="footer-link">隐私政策</el-link>
-              </div>
-            </div>
-          </div>
-        </div>
+        <AppFooter :lastUpdateTime="lastUpdateTime" />
+        
       </div>
     </div>
   </template>
@@ -231,9 +202,12 @@
   import { ref, reactive, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import AppFooter from '@/components/AppFooter.vue'
+  import CollectComponent from '@/components/CollectComponent.vue'
+  import StudentManagementComponent from '@/components/StudentManagementComponent.vue'
   import {
-    User, School, Postcard, Phone, Message, Calendar,
-    Reading, EditPen, Notebook, View, TrendCharts, DataAnalysis,
+    User, School, Postcard, Phone, Message,
+    Reading, Notebook, View, TrendCharts, DataAnalysis,
     Trophy, Promotion, Setting, Bell, SwitchButton,
     Refresh, FullScreen
   } from '@element-plus/icons-vue'
@@ -280,7 +254,7 @@
   // 导航方法
   const navigateTo = (route: string) => {
     activeItem.value = route
-    router.push(`/${route}`)
+    // router.push(`/${route}`) // 移除路由跳转
     ElMessage.success(`正在跳转到${currentPageTitle.value}`)
   }
   
@@ -300,7 +274,7 @@
       ElMessage.success('已退出全屏模式')
     }
   }
-  
+
   // 退出登录
   const handleLogout = () => {
     ElMessageBox.confirm(
@@ -319,6 +293,18 @@
     }).catch(() => {
       ElMessage.info('已取消退出')
     })
+  }
+
+  // 处理文件上传成功
+  const handleUploadSuccess = (data: { type: string; file: File; response: any }) => {
+    console.log('文件上传成功:', data)
+    ElMessage.success(`文件 ${data.file.name} 上传成功！`)
+  }
+
+  // 处理文件上传错误
+  const handleUploadError = (data: { error: any; file: File }) => {
+    console.error('文件上传失败:', data)
+    ElMessage.error(`文件 ${data.file.name} 上传失败！`)
   }
   </script>
   
