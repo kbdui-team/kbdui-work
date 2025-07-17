@@ -84,14 +84,14 @@
                 <span>教学记录</span>
               </div>
 
-              <div 
+              <!-- <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'orator_result' }"
                 @click="navigateTo('orator_result')"
               >
                 <el-icon><View /></el-icon>
                 <span>练习记录</span>
-              </div>
+              </div> -->
             </div>
           </div>
           
@@ -118,14 +118,14 @@
                 <el-icon><Trophy /></el-icon>
                 <span>成绩管理</span>
               </div>
-              <div 
+              <!-- <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'progress' }"
                 @click="navigateTo('progress')"
               >
                 <el-icon><Promotion /></el-icon>
                 <span>学习进度1</span>
-              </div>
+              </div> -->
             </div>
           </div>
           
@@ -185,6 +185,8 @@
         
         <div class="content-body">
           <StudentManagementComponent v-if="activeItem === 'scores'" />
+          <ScoreManagementComponent v-else-if="activeItem === 'ranking'" />
+          <TeachingRecordComponent v-else-if="activeItem === 'review'" />
           <CollectComponent 
             v-else
             @uploadSuccess="handleUploadSuccess"
@@ -205,6 +207,8 @@
   import AppFooter from '@/components/AppFooter.vue'
   import CollectComponent from '@/components/CollectComponent.vue'
   import StudentManagementComponent from '@/components/StudentManagementComponent.vue'
+  import ScoreManagementComponent from '../components/ScoreManagementComponent.vue'
+  import TeachingRecordComponent from '../components/TeachingRecordComponent.vue'
   import {
     User, School, Postcard, Phone, Message,
     Reading, Notebook, View, TrendCharts, DataAnalysis,
@@ -253,6 +257,10 @@
   
   // 导航方法
   const navigateTo = (route: string) => {
+    if (route === 'changeInfo') {
+      router.push('/changeInfo')
+      return
+    }
     activeItem.value = route
     // router.push(`/${route}`) // 移除路由跳转
     ElMessage.success(`正在跳转到${currentPageTitle.value}`)
