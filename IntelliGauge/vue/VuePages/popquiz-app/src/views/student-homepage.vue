@@ -124,14 +124,14 @@
               <span>成绩模块</span>
             </div>
             <div class="menu-items">
-              <div 
+              <!-- <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'scores' }"
                 @click="navigateTo('scores')"
               >
                 <el-icon><DataAnalysis /></el-icon>
                 <span>成绩查询</span>
-              </div>
+              </div> -->
               <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'ranking' }"
