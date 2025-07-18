@@ -214,6 +214,12 @@
           @back-to-home="handleBackToHome"
           @quiz-complete="handleQuizComplete"
         />
+        <!-- 显示排行榜 -->
+        <Ranking v-else-if="activeItem === 'ranking'" />
+        <!-- 显示学习进度 -->
+        <StudyProgress v-else-if="activeItem === 'progress'" />
+        <!-- 显示错题回顾 -->
+        <WrongReview v-else-if="activeItem === 'review'" />
         <!-- 其他路由内容 -->
         <router-view v-else />
       </div>
@@ -235,6 +241,9 @@ import {
   Refresh, FullScreen
 } from '@element-plus/icons-vue'
 import QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
+import StudyProgress from './StudyProgress.vue'
+import Ranking from './Ranking.vue'
+import WrongReview from './WrongReview.vue'
 
 const router = useRouter()
 const activeItem = ref('quiz')
@@ -322,7 +331,7 @@ const currentQuizData = ref({
   
   if (routeMap[item]) {
     router.push(routeMap[item])
-  } else {
+  } else if (item !== 'ranking' && item !== 'progress' && item !== 'review') {
     ElMessage.info(`切换到${currentPageTitle.value}`)
   }
 }
