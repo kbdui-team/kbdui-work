@@ -14,12 +14,12 @@ deepseek:
   api:
     key: sk-8ddc7f72619c4a6083edc34ff7968132
 
-# 日志配置
-logging:
-  level:
-    com.hugai: debug
-    org.springframework: warn
-
+## 日志配置
+#logging:
+#  level:
+#    com.hugai: debug
+#    org.springframework: warn
+# spring配置
 spring:
   servlet:
     multipart:
@@ -27,65 +27,72 @@ spring:
       max-request-size: 100MB
   # 数据库mysql
   datasource:
-    druid:
-      driver-class-name: com.mysql.cj.jdbc.Driver
-      type: com.alibaba.druid.pool.xa.DruidXADataSource
-      url: jdbc:mysql://localhost:3306/db_hugai?useUnicode=true&useSSL=false&serverTimezone=Asia/Shanghai&autoReconnect=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
-      username: root
-      password: 123456
-      initial-size: 5
-      max-active: 20
-      min-idle: 1
-      max-wait: 10000
-      time-between-eviction-runs-millis: 60000
-      min-evictable-idle-time-millis: 300000
-      validationQuery: SELECT 1 FROM DUAL
-      test-while-idle: true
-      test-on-borrow: false
-      test-on-return: false
-      filters: stat,wall,slf4j
-      connect-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
-  data:
-    # redis配置
-    redis:
-      host: 127.0.0.1
-      port: 6379
-      database: 8
-      timeout: 10s
-      Lettuce:
-        pool:
-          min-idle: 0
-          max-idle: 8
-          max-active: 20
-          max-wait: -1ms
-      # redis密码，为空可以删掉
-      password:
-    mail:
-      host: smtp.qq.com
-      username: xxxxxx@qq.com
-      password: xxxxxx
-      #端口号465或587
-      port: 587
-      default-encoding: UTF-8
-      properties:
-        mail:
-          smtp:
-            ssl:
-              enable: false
-              required: false
-          # 日志
-          debug: false
-    rabbitmq:
-      host: 127.0.0.1
-      port: 5672
-      username: guest
-      password: guest
-      virtual-host: /
-      listener:
-        simple:
-          acknowledge-mode: manual
-        direct:
-          acknowledge-mode: manual
+    url: jdbc:mysql://localhost:3306/intelligauge_data
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+
+#  datasource:
+#    druid:
+#      driver-class-name: com.mysql.cj.jdbc.Driver
+#      type: com.alibaba.druid.pool.xa.DruidXADataSource
+#      url: jdbc:mysql://localhost:3306/db_hugai?useUnicode=true&useSSL=false&serverTimezone=Asia/Shanghai&autoReconnect=true&characterEncoding=utf8&allowPublicKeyRetrieval=true
+#      username: root
+#      password: 123456
+#      initial-size: 5
+#      max-active: 20
+#      min-idle: 1
+#      max-wait: 10000
+#      time-between-eviction-runs-millis: 60000
+#      min-evictable-idle-time-millis: 300000
+#      validationQuery: SELECT 1 FROM DUAL
+#      test-while-idle: true
+#      test-on-borrow: false
+#      test-on-return: false
+#      filters: stat,wall,slf4j
+#      connect-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+#  data:
+#    # redis配置
+#    redis:
+#      host: 127.0.0.1
+#      port: 6379
+#      database: 8
+#      timeout: 10s
+#      Lettuce:
+#        pool:
+#          min-idle: 0
+#          max-idle: 8
+#          max-active: 20
+#          max-wait: -1ms
+#      # redis密码，为空可以删掉
+#      password:
+#    mail:
+#      host: smtp.qq.com
+#      username: xxxxxx@qq.com
+#      password: xxxxxx
+#      #端口号465或587
+#      port: 587
+#      default-encoding: UTF-8
+#      properties:
+#        mail:
+#          smtp:
+#            ssl:
+#              enable: false
+#              required: false
+#          # 日志
+#          debug: false
+#    rabbitmq:
+#      host: 127.0.0.1
+#      port: 5672
+#      username: guest
+#      password: guest
+#      virtual-host: /
+#      listener:
+#        simple:
+#          acknowledge-mode: manual
+#        direct:
+#          acknowledge-mode: manual
 
 # ---------------- 自定义配置
 # 项目配置
