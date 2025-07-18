@@ -1,12 +1,21 @@
-#  依次获取各张幻灯片
+#  视频转文字  
+#  中文繁体、英文
 
-import collections.abc
-from pptx import Presentation
+import whisper
 
-pre1 = Presentation('pptx_Trans\\RT-Thread.pptx')
+def transcribe_audio(audio_path, model_size="small"):
+    #  强制使用CPU并加载模型
+    model = whisper.load_model(model_size, device="cpu")
+    
+    #  禁用FP16（CPU不支持）
+    result = model.transcribe(audio_path, fp16=False)
+    
+    #  返回文本和分段信息
+    return {
+        "text": result["text"],
+        "segments": result["segments"]
+    }
 
-print(pre1)
-slide_list = pre1.slides
-for slide in slide_list:
-    print(slide)
-
+#  使用示例
+output = transcribe_audio("Susan.mp3")
+print(output["text"])
