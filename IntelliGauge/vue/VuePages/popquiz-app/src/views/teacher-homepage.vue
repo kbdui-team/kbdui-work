@@ -12,8 +12,8 @@
           </div>
           
           <div class="user-details">
-            <h3 class="user-name">{{ userInfo.name }}</h3>
-            <p class="user-role">{{ userInfo.role }}</p>
+            <h3 class="user-name">{{ userInfo.realName || userInfo.userName }}</h3>
+            <p class="user-role">{{ userInfo.userType === 'admin' ? '管理员' : '教师' }}</p>
           </div>
           
           <div class="info-list">
@@ -24,12 +24,11 @@
                 <span class="info-value">{{ userInfo.class }}</span>
               </div>
             </div>
-            
             <div class="info-item">
               <el-icon class="info-icon"><Postcard /></el-icon>
               <div class="info-content">
                 <span class="info-label">工号</span>
-                <span class="info-value">{{ userInfo.studentId }}</span>
+                <span class="info-value">{{ userInfo.userName }}</span>
               </div>
             </div>
             
@@ -201,7 +200,7 @@
   </template>
   
   <script setup lang="ts">
-  import { ref, reactive, computed } from 'vue'
+  import { ref, reactive, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import AppFooter from '@/components/AppFooter.vue'
@@ -219,20 +218,40 @@
   const router = useRouter()
   const activeItem = ref('quiz')
   
-  // 用户信息数据
+  // 用户信息数据，初始为空
   const userInfo = reactive({
-    name: '张三',
-    role: '教师',
-    class: '计算机科学与技术2021级1班',
-    studentId: '2021001001',
-    phone: '138****8888',
-    email: 'zhangsan@email.com',
-    enrollmentDate: '2021年9月',
+    userName: '',
+    realName: '',
+    email: '',
+    phone: '',
+    status: '',
+    password: '',
+    userType: '',
+    // 页面展示用
     avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    stats: {
-      completedQuizzes: 45,
-      averageScore: 87,
-      rank: 5
+    class: '', // 办公室
+    studentId: '', // 工号
+  })
+
+  // 页面挂载时从localStorage获取用户信息
+  onMounted(() => {
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        userInfo.userName = user.userName || ''
+        userInfo.realName = user.realName || ''
+        userInfo.email = user.email || ''
+        userInfo.phone = user.phone || ''
+        userInfo.status = user.status || ''
+        userInfo.password = user.password || ''
+        userInfo.userType = user.userType || ''
+        // 下面字段如有后端返回可直接赋值，否则留空
+        userInfo.class = user.class || ''
+        userInfo.studentId = user.userName || '' // 工号用userName
+        // 可选：头像
+        userInfo.avatar = user.avatar || userInfo.avatar
+      } catch {}
     }
   })
   

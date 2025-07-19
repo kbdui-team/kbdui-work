@@ -6,6 +6,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 
 const app = createApp(App)
+app.provide("baseurl", "http://localhost:5555")
 
 for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
   app.component(key, component)

@@ -315,7 +315,8 @@
   </template>
   
   <script setup>
-  import { ref, reactive, onMounted } from 'vue'
+  import { ref, reactive, onMounted, inject } from 'vue'
+  import axios from 'axios'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
     User, Camera, Delete, Postcard, School, Phone, Message, Calendar,
@@ -333,16 +334,16 @@
     avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
   })
   
-  // 基本信息表单
+  // 基本信息表单，字段与后端UserDTO一致
   const basicForm = reactive({
-    name: '张三',
-    gender: 'male',
-    studentId: '2021001001',
-    class: '计算机科学与技术2021级1班',
-    phone: '13888888888',
-    email: 'zhangsan@email.com',
-    enrollmentDate: '2021-09-01',
-    bio: '热爱学习，积极向上的大学生。'
+    id: 0,
+    userName: '',
+    realName: '',
+    email: '',
+    phone: '',
+    status: '',
+    password: '',
+    userType: ''
   })
   
   // 密码修改表单
@@ -442,18 +443,28 @@
   }
   
   // 保存基本信息
+  const baseurl = inject('baseurl')
   const saveBasicInfo = async () => {
     if (!basicFormRef.value) return
-  
-    await basicFormRef.value.validate((valid) => {
+
+    await basicFormRef.value.validate(async (valid) => {
       if (valid) {
         saving.value = true
-        
-        setTimeout(() => {
+        try {
+          // 调用后端接口
+          const res = await axios.put(`${baseurl}/user/update`, basicForm)
           saving.value = false
-          ElMessage.success('基本信息保存成功')
-          console.log('保存的基本信息:', basicForm)
-        }, 1500)
+          if (res.data === true) {
+            ElMessage.success('基本信息保存成功')
+            // 更新localStorage
+            localStorage.setItem('currentUser', JSON.stringify(basicForm))
+          } else {
+            ElMessage.error('保存失败，请重试')
+          }
+        } catch {
+          saving.value = false
+          ElMessage.error('保存失败，请检查网络或稍后重试')
+        }
       } else {
         ElMessage.error('请检查填写的信息')
       }
@@ -532,8 +543,22 @@
     })
   }
   
+  // 页面加载时填充表单
   onMounted(() => {
-    console.log('个人设置页面已加载')
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        basicForm.id = user.id || 0
+        basicForm.userName = user.userName || ''
+        basicForm.realName = user.realName || ''
+        basicForm.email = user.email || ''
+        basicForm.phone = user.phone || ''
+        basicForm.status = user.status || ''
+        basicForm.password = user.password || ''
+        basicForm.userType = user.userType || ''
+      } catch {}
+    }
   })
   </script>
   
