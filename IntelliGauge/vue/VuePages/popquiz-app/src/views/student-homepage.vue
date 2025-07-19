@@ -12,8 +12,8 @@
           </div>
           
           <div class="user-details">
-            <h3 class="user-name">{{ userInfo.name }}</h3>
-            <p class="user-role">{{ userInfo.role }}</p>
+            <h3 class="user-name">{{ userInfo.realName || userInfo.userName }}</h3>
+            <p class="user-role">{{ userInfo.userType === 'admin' ? '管理员' : '学生' }}</p>
           </div>
           
           <div class="info-list">
@@ -24,12 +24,11 @@
                 <span class="info-value">{{ userInfo.class }}</span>
               </div>
             </div>
-            
             <div class="info-item">
               <el-icon class="info-icon"><Postcard /></el-icon>
               <div class="info-content">
                 <span class="info-label">学号</span>
-                <span class="info-value">{{ userInfo.studentId }}</span>
+                <span class="info-value">{{ userInfo.userName }}</span>
               </div>
             </div>
             
@@ -88,7 +87,7 @@
               <div 
                 class="menu-item" 
                 :class="{ active: activeItem === 'quiz' }"
-                @click="showquiz = true"
+                @click="() => { showquiz = true; activeItem = 'quiz'; }"
               >
                 <el-icon><EditPen /></el-icon>
                 <span>在线答题</span>
@@ -208,18 +207,13 @@
 
       <div class="content-body">
         <!-- 显示答题组件 -->
-        <QuizComponent 
+        <component 
+          :is="QuizComponent.default" 
           v-if="showquiz" 
           :quiz-data="currentQuizData"
           @back-to-home="handleBackToHome"
           @quiz-complete="handleQuizComplete"
         />
-        <!-- 显示排行榜 -->
-        <Ranking v-else-if="activeItem === 'ranking'" />
-        <!-- 显示学习进度 -->
-        <StudyProgress v-else-if="activeItem === 'progress'" />
-        <!-- 显示错题回顾 -->
-        <WrongReview v-else-if="activeItem === 'review'" />
         <!-- 其他路由内容 -->
         <router-view v-else />
       </div>
@@ -230,7 +224,7 @@
   </template>
   
   <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AppFooter from '@/components/AppFooter.vue'
@@ -240,32 +234,62 @@ import {
   Trophy, Promotion, Setting, Bell, SwitchButton,
   Refresh, FullScreen
 } from '@element-plus/icons-vue'
-import QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
-import StudyProgress from './StudyProgress.vue'
-import Ranking from './Ranking.vue'
-import WrongReview from './WrongReview.vue'
+import * as QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
 
 const router = useRouter()
 const activeItem = ref('quiz')
-const showquiz = ref(false)
+const showquiz = ref(true)
   
-  // 用户信息数据
-  const userInfo = reactive({
-    name: '张三',
-    role: '学生',
-    class: '计算机科学与技术2021级1班',
-    studentId: '2021001001',
-    phone: '138****8888',
-    email: 'zhangsan@email.com',
-    enrollmentDate: '2021年9月',
-    avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-    stats: {
-      completedQuizzes: 45,
-      averageScore: 87,
-      rank: 5
-    }
-  })
+// 用户信息数据，初始为空
+const userInfo = reactive({
+  userName: '',
+  realName: '',
+  email: '',
+  phone: '',
+  status: '',
+  password: '',
+  userType: '',
+  // 页面展示用
+  avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
+  enrollmentDate: '',
+  class: '',
+  studentId: '',
+  stats: {
+    completedQuizzes: 0,
+    averageScore: 0,
+    rank: 0
+  }
+})
 
+// 页面挂载时从localStorage获取用户信息
+onMounted(() => {
+  const userStr = localStorage.getItem('currentUser')
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr)
+      userInfo.userName = user.userName || ''
+      userInfo.realName = user.realName || ''
+      userInfo.email = user.email || ''
+      userInfo.phone = user.phone || ''
+      userInfo.status = user.status || ''
+      userInfo.password = user.password || ''
+      userInfo.userType = user.userType || ''
+      // 下面字段如有后端返回可直接赋值，否则留空
+      userInfo.class = user.class || ''
+      userInfo.studentId = user.studentId || ''
+      userInfo.enrollmentDate = user.enrollmentDate || ''
+      // 可选：头像
+      userInfo.avatar = user.avatar || userInfo.avatar
+      // 可选：统计数据
+      if (user.stats) {
+        userInfo.stats.completedQuizzes = user.stats.completedQuizzes || 0
+        userInfo.stats.averageScore = user.stats.averageScore || 0
+        userInfo.stats.rank = user.stats.rank || 0
+      }
+    } catch {}
+  }
+})
+  
   // 当前答题数据
 const currentQuizData = ref({
   title: 'JavaScript 基础知识测试',
@@ -331,7 +355,7 @@ const currentQuizData = ref({
   
   if (routeMap[item]) {
     router.push(routeMap[item])
-  } else if (item !== 'ranking' && item !== 'progress' && item !== 'review') {
+  } else {
     ElMessage.info(`切换到${currentPageTitle.value}`)
   }
 }
