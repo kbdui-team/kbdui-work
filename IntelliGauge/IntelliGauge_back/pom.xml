@@ -132,6 +132,13 @@
 			<artifactId>spring-boot-starter-amqp</artifactId>
 		</dependency>
 
+		<!-- MyBatis-Plus -->
+		<dependency>
+			<groupId>com.baomidou</groupId>
+			<artifactId>mybatis-plus-boot-starter</artifactId>
+			<version>3.4.1</version>
+		</dependency>
+
 		<!-- 如果后续需要数据库，可以取消注释以下依赖 -->
 		<!--
 		<dependency>
