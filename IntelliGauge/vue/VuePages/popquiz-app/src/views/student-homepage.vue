@@ -99,7 +99,7 @@
               <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'review' }"
-                @click="navigateTo('review')"
+                @click="() => { activeItem = 'review'; }"
               >
                 <el-icon><View /></el-icon>
                 <span>错题回顾</span>
@@ -134,7 +134,7 @@
               <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'ranking' }"
-                @click="navigateTo('ranking')"
+                @click="() => { activeItem = 'ranking'; }"
               >
                 <el-icon><Trophy /></el-icon>
                 <span>排行榜</span>
@@ -142,7 +142,7 @@
               <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'progress' }"
-                @click="navigateTo('progress')"
+                @click="() => { activeItem = 'progress'; }"
               >
                 <el-icon><Promotion /></el-icon>
                 <span>学习进度</span>
@@ -206,15 +206,17 @@
       </div>
 
       <div class="content-body">
-        <!-- 显示答题组件 -->
+        <!-- 显示答题组件或错题回顾 -->
         <component 
           :is="QuizComponent.default" 
-          v-if="showquiz" 
+          v-if="activeItem === 'quiz'"
           :quiz-data="currentQuizData"
           @back-to-home="handleBackToHome"
           @quiz-complete="handleQuizComplete"
         />
-        <!-- 其他路由内容 -->
+        <component :is="WrongReview.default" v-else-if="activeItem === 'review'" />
+        <component :is="Ranking.default" v-else-if="activeItem === 'ranking'" />
+        <component :is="StudyProgress.default" v-else-if="activeItem === 'progress'" />
         <router-view v-else />
       </div>
     
@@ -236,6 +238,9 @@ import {
 } from '@element-plus/icons-vue'
 
 import * as QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
+import * as WrongReview from './WrongReview.vue'
+import * as Ranking from './Ranking.vue'
+import * as StudyProgress from './StudyProgress.vue'
 
 const router = useRouter()
 const activeItem = ref('quiz')

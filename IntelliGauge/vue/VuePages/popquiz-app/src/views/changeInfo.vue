@@ -207,109 +207,7 @@
             </el-form>
           </div>
         </div>
-  
-        <!-- 通知设置卡片 -->
-        <div class="settings-card">
-          <div class="card-header">
-            <h3>通知设置</h3>
-            <p>管理您的通知偏好设置</p>
-          </div>
-          <div class="card-body">
-            <div class="notification-settings">
-              <div class="setting-item">
-                <div class="setting-info">
-                  <h4>邮件通知</h4>
-                  <p>接收重要活动和更新的邮件通知</p>
-                </div>
-                <el-switch
-                  v-model="notificationSettings.email"
-                  size="large"
-                  :active-icon="Message"
-                  :inactive-icon="Hide"
-                />
-              </div>
-  
-              <div class="setting-item">
-                <div class="setting-info">
-                  <h4>短信通知</h4>
-                  <p>接收考试提醒和重要通知的短信</p>
-                </div>
-                <el-switch
-                  v-model="notificationSettings.sms"
-                  size="large"
-                  :active-icon="Phone"
-                  :inactive-icon="Hide"
-                />
-              </div>
-  
-              <div class="setting-item">
-                <div class="setting-info">
-                  <h4>浏览器通知</h4>
-                  <p>在浏览器中接收实时通知</p>
-                </div>
-                <el-switch
-                  v-model="notificationSettings.browser"
-                  size="large"
-                  :active-icon="Bell"
-                  :inactive-icon="Hide"
-                />
-              </div>
-  
-              <div class="setting-item">
-                <div class="setting-info">
-                  <h4>系统更新通知</h4>
-                  <p>接收系统更新和维护通知</p>
-                </div>
-                <el-switch
-                  v-model="notificationSettings.system"
-                  size="large"
-                  :active-icon="Setting"
-                  :inactive-icon="Hide"
-                />
-              </div>
-            </div>
-  
-            <div class="notification-actions">
-              <el-button type="primary" @click="saveNotificationSettings">
-                <el-icon><Check /></el-icon>
-                保存设置
-              </el-button>
-            </div>
-          </div>
-        </div>
-  
-        <!-- 危险操作区域 -->
-        <div class="settings-card danger-zone">
-          <div class="card-header">
-            <h3>危险操作</h3>
-            <p>以下操作将对您的账户造成不可逆的影响</p>
-          </div>
-          <div class="card-body">
-            <div class="danger-actions">
-              <div class="danger-item">
-                <div class="danger-info">
-                  <h4>清空学习记录</h4>
-                  <p>删除所有答题记录和学习进度</p>
-                </div>
-                <el-button type="danger" plain @click="clearLearningData">
-                  <el-icon><Delete /></el-icon>
-                  清空记录
-                </el-button>
-              </div>
-  
-              <div class="danger-item">
-                <div class="danger-info">
-                  <h4>注销账户</h4>
-                  <p>永久删除您的账户和所有相关数据</p>
-                </div>
-                <el-button type="danger" @click="deleteAccount">
-                  <el-icon><WarningFilled /></el-icon>
-                  注销账户
-                </el-button>
-              </div>
-            </div>
-          </div>
-        </div>
+
       </div>
     </div>
   </template>
@@ -320,7 +218,7 @@
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
     User, Camera, Delete, Postcard, School, Phone, Message, Calendar,
-    Lock, Check, RefreshLeft, Bell, Setting, Hide, WarningFilled
+    Lock, Check, RefreshLeft
   } from '@element-plus/icons-vue'
   
   // 响应式数据
@@ -357,14 +255,6 @@
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
-  })
-  
-  // 通知设置
-  const notificationSettings = reactive({
-    email: true,
-    sms: false,
-    browser: true,
-    system: true
   })
   
   // 表单验证规则
@@ -404,9 +294,8 @@
     confirmPassword: [
       { required: true, message: '请再次输入新密码', trigger: 'blur' },
       {
-        validator: (rule: unknown, value: unknown, callback: (err?: Error) => void) => {
-          const f = rule as { newPassword: string }
-          if (value !== f.newPassword) {
+        validator: (rule: unknown, value: string, callback: (err?: Error) => void) => {
+          if (value !== passwordForm.newPassword) {
             callback(new Error('两次输入的密码不一致'))
           } else {
             callback()
@@ -454,31 +343,42 @@
   // 保存基本信息
   const baseurl = inject('baseurl')
   const saveBasicInfo = async () => {
-    if (!basicFormRef.value) return
-
+    if (!basicFormRef.value) return;
+    // 同步页面字段到后端字段
+    basicForm.realName = basicForm.name;
+    basicForm.userName = basicForm.studentId;
+    basicForm.status = basicForm.class;
+    // 如有需要可同步basicForm.bio、basicForm.enrollmentDate到后端自定义字段
     await basicFormRef.value.validate(async (valid: unknown) => {
       if (valid) {
-        saving.value = true
+        saving.value = true;
         try {
-          // 调用后端接口
-          console.log("basicForm",basicForm)
-          const res = await axios.put(`${baseurl}/user/update`, basicForm)
-          saving.value = false
+          const payload = {
+            id: basicForm.id,
+            userName: basicForm.userName,
+            realName: basicForm.realName,
+            email: basicForm.email,
+            phone: basicForm.phone,
+            status: basicForm.status,
+            password: basicForm.password,
+            userType: basicForm.userType
+          };
+          const res = await axios.put(`${baseurl}/user/update`, payload);
+          saving.value = false;
           if (res.data === true) {
-            ElMessage.success('基本信息保存成功')
-            // 更新localStorage
-            localStorage.setItem('currentUser', JSON.stringify(basicForm))
+            ElMessage.success('基本信息保存成功');
+            localStorage.setItem('currentUser', JSON.stringify({ ...basicForm, ...payload }));
           } else {
-            ElMessage.error('保存失败，请重试')
+            ElMessage.error('保存失败，请重试');
           }
         } catch {
-          saving.value = false
-          ElMessage.error('保存失败，请检查网络或稍后重试')
+          saving.value = false;
+          ElMessage.error('保存失败，请检查网络或稍后重试');
         }
       } else {
-        ElMessage.error('请检查填写的信息')
+        ElMessage.error('请检查填写的信息');
       }
-    })
+    });
   }
   
   // 重置基本信息表单
@@ -489,68 +389,61 @@
   
   // 修改密码
   const changePassword = async () => {
-    if (!passwordFormRef.value) return
-  
-    await passwordFormRef.value.validate((valid: unknown) => {
+    if (!passwordFormRef.value) return;
+    await passwordFormRef.value.validate(async (valid: unknown) => {
       if (valid) {
-        changingPassword.value = true
-        
-        setTimeout(() => {
-          changingPassword.value = false
-          ElMessage.success('密码修改成功')
-          passwordForm.currentPassword = ''
-          passwordForm.newPassword = ''
-          passwordForm.confirmPassword = ''
-        }, 1500)
+        // 校验旧密码
+        const userStr = localStorage.getItem('currentUser');
+        let oldPassword = '';
+        if (userStr) {
+          try {
+            const user = JSON.parse(userStr);
+            oldPassword = user.password;
+          } catch {}
+        }
+        if (passwordForm.currentPassword !== oldPassword) {
+          ElMessage.error('当前密码错误');
+          return;
+        }
+        if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+          ElMessage.error('两次输入的新密码不一致');
+          return;
+        }
+        changingPassword.value = true;
+        try {
+          // 只更新密码字段
+          const payload = {
+            id: basicForm.id,
+            password: passwordForm.newPassword
+          };
+          const res = await axios.put(`${baseurl}/user/update`, payload);
+          changingPassword.value = false;
+          if (res.data === true) {
+            ElMessage.success('密码修改成功');
+            // 更新localStorage
+            const user = userStr ? JSON.parse(userStr) : {};
+            user.password = passwordForm.newPassword;
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            passwordForm.currentPassword = '';
+            passwordForm.newPassword = '';
+            passwordForm.confirmPassword = '';
+          } else {
+            ElMessage.error('密码修改失败，请重试');
+          }
+        } catch {
+          changingPassword.value = false;
+          ElMessage.error('密码修改失败，请检查网络或稍后重试');
+        }
       } else {
-        ElMessage.error('请检查密码信息')
+        ElMessage.error('请检查密码信息');
       }
-    })
+    });
   }
   
   // 重置密码表单
   const resetPasswordForm = () => {
     passwordFormRef.value?.resetFields()
     ElMessage.info('密码表单已重置')
-  }
-  
-  // 保存通知设置
-  const saveNotificationSettings = () => {
-    ElMessage.success('通知设置保存成功')
-    console.log('通知设置:', notificationSettings)
-  }
-  
-  // 清空学习记录
-  const clearLearningData = () => {
-    ElMessageBox.confirm(
-      '此操作将永久删除您的所有学习记录和进度，无法恢复！',
-      '危险操作确认',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'error',
-        dangerouslyUseHTMLString: true
-      }
-    ).then(() => {
-      ElMessage.success('学习记录已清空')
-    })
-  }
-  
-  // 注销账户
-  const deleteAccount = () => {
-    ElMessageBox.prompt(
-      '请输入您的用户名以确认注销账户操作',
-      '账户注销确认',
-      {
-        confirmButtonText: '确定注销',
-        cancelButtonText: '取消',
-        inputPattern: /^admin$/,
-        inputErrorMessage: '用户名不正确',
-        type: 'error'
-      }
-    ).then(() => {
-      ElMessage.error('账户注销功能暂未开放')
-    })
   }
   
   // 页面加载时填充表单

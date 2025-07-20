@@ -22,6 +22,19 @@
         </div>
       </div>
   
+      <!-- 匿名答题按钮 -->
+      <div class="anonymous-card">
+        <el-icon class="anon-icon">
+          <Hide v-if="isAnonymous" />
+          <UserFilled v-else />
+        </el-icon>
+        <div class="anon-desc">
+          <div class="anon-title">匿名答题</div>
+          <div class="anon-tip">{{ isAnonymous ? '当前为匿名答题，成绩不会记录到个人名下' : '当前为实名答题，成绩将记录到个人名下' }}</div>
+        </div>
+        <el-switch v-model="isAnonymous" active-text="匿名" inactive-text="实名" class="anon-switch" />
+      </div>
+  
       <!-- 进度条 -->
       <div class="progress-bar">
         <div 
@@ -30,81 +43,85 @@
         ></div>
       </div>
   
-      <!-- 答题区域 -->
+      <!-- 答题区域，空值保护 -->
       <div class="quiz-content" v-if="!isQuizComplete">
-        <div class="question-card">
-          <div class="question-header">
-            <h3 class="question-text">{{ currentQuestion.question }}</h3>
-            <div class="question-timer">
-              <el-progress 
-                type="circle" 
-                :percentage="(timeLeft / questionTimeLimit) * 100" 
-                :width="60"
-                :stroke-width="6"
-                :color="getTimerColor()"
-              />
-            </div>
+        <div v-if="questions.length > 0 && currentQuestion && currentQuestion.question && Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0">
+          <div style="color:#aaa;font-size:13px;margin-bottom:8px;">
+            <span>【调试】当前题目索引: {{ currentQuestionIndex }}，题目内容: {{ currentQuestion && currentQuestion.question ? currentQuestion.question : '空' }}，选项数: {{ Array.isArray(currentQuestion && currentQuestion.options) ? currentQuestion.options.length : 0 }}</span>
           </div>
-  
-          <!-- 题目图片（如果有） -->
-          <div class="question-image" v-if="currentQuestion.image">
-            <img :src="currentQuestion.image" :alt="currentQuestion.question" />
-          </div>
-  
-          <!-- 选项列表 -->
-          <div class="options-container">
-            <div
-              v-for="(option, index) in currentQuestion.options"
-              :key="index"
-              class="option-item"
-              :class="{
-                'selected': selectedAnswer === index,
-                'correct': showAnswer && index === currentQuestion.correct,
-                'incorrect': showAnswer && selectedAnswer === index && index !== currentQuestion.correct,
-                'disabled': showAnswer
-              }"
-              @click="selectAnswer(index)"
-            >
-              <div class="option-label">{{ String.fromCharCode(65 + index) }}</div>
-              <div class="option-text">{{ option }}</div>
-              <div class="option-indicator" v-if="showAnswer">
-                <el-icon v-if="index === currentQuestion.correct" class="correct-icon">
-                  <Check />
-                </el-icon>
-                <el-icon v-else-if="selectedAnswer === index" class="incorrect-icon">
-                  <Close />
-                </el-icon>
+          <div class="question-card">
+            <div class="question-header">
+              <h3 class="question-text">{{ currentQuestion && currentQuestion.question ? currentQuestion.question : '无题目内容' }}</h3>
+              <div class="question-timer">
+                <el-progress 
+                  type="circle" 
+                  :percentage="(timeLeft / questionTimeLimit) * 100" 
+                  :width="60"
+                  :stroke-width="6"
+                  :color="getTimerColor()"
+                />
               </div>
             </div>
-          </div>
-  
-          <!-- 答案解释 -->
-          <div class="explanation" v-if="showAnswer && currentQuestion.explanation">
-            <div class="explanation-header">
-              <el-icon><InfoFilled /></el-icon>
-              <span>解释</span>
+            <div class="question-image" v-if="currentQuestion && currentQuestion.image">
+              <img :src="currentQuestion.image" :alt="currentQuestion.question" />
             </div>
-            <p>{{ currentQuestion.explanation }}</p>
+            <div v-if="Array.isArray(currentQuestion.options) && currentQuestion.options.length > 0" class="options-container">
+              <div
+                v-for="(option, index) in currentQuestion.options"
+                :key="index"
+                class="option-item"
+                :class="{
+                  'selected': selectedAnswer === index,
+                  'correct': showAnswer && index === currentQuestion.correct,
+                  'incorrect': showAnswer && selectedAnswer === index && index !== currentQuestion.correct,
+                  'disabled': showAnswer
+                }"
+                @click="selectAnswer(index)"
+              >
+                <div class="option-label">{{ String.fromCharCode(65 + index) }}</div>
+                <div class="option-text">{{ option }}</div>
+                <div class="option-indicator" v-if="showAnswer">
+                  <el-icon v-if="index === currentQuestion.correct" class="correct-icon">
+                    <Check />
+                  </el-icon>
+                  <el-icon v-else-if="selectedAnswer === index" class="incorrect-icon">
+                    <Close />
+                  </el-icon>
+                </div>
+              </div>
+            </div>
+            <div v-else style="color:#e57373;text-align:center;padding:16px 0;">
+              【调试】当前题目无有效选项，请检查题库数据。
+            </div>
+            <div class="explanation" v-if="showAnswer && currentQuestion && currentQuestion.explanation">
+              <div class="explanation-header">
+                <el-icon><InfoFilled /></el-icon>
+                <span>解释</span>
+              </div>
+              <p>{{ currentQuestion.explanation }}</p>
+            </div>
+            <div class="quiz-actions">
+              <el-button 
+                v-if="!showAnswer" 
+                type="primary" 
+                :disabled="selectedAnswer === null"
+                @click="submitAnswer"
+              >
+                提交答案
+              </el-button>
+              <el-button 
+                v-else 
+                type="success" 
+                @click="nextQuestion"
+              >
+                {{ currentQuestionIndex < questions.length - 1 ? '下一题' : '完成测试' }}
+              </el-button>
+            </div>
           </div>
-  
-          <!-- 控制按钮 -->
-          <div class="quiz-actions">
-            <el-button 
-              v-if="!showAnswer" 
-              type="primary" 
-              :disabled="selectedAnswer === null"
-              @click="submitAnswer"
-            >
-              提交答案
-            </el-button>
-            <el-button 
-              v-else 
-              type="success" 
-              @click="nextQuestion"
-            >
-              {{ currentQuestionIndex < questions.length - 1 ? '下一题' : '完成测试' }}
-            </el-button>
-          </div>
+        </div>
+        <div v-else style="text-align:center;color:#888;padding:40px 0;">
+          【调试】题目或选项数据为空，questions.length={{ questions.length }}，currentQuestion={{ currentQuestion ? JSON.stringify(currentQuestion) : 'null' }}
+          <br>暂无可用题目或选项，请联系管理员添加题库。
         </div>
       </div>
   
@@ -158,32 +175,15 @@
   import { ElMessage } from 'element-plus'
   import { 
     Clock, Trophy, Check, Close, InfoFilled, 
-    Medal, Star
+    Medal, Star, UserFilled, Hide
   } from '@element-plus/icons-vue'
+  
+  import axios from 'axios'
   
   // 定义组件事件
   const emit = defineEmits(['backToHome', 'quizComplete'])
   
-  // 定义组件属性
-  interface Props {
-    quizData?: {
-      title?: string
-      category?: string
-      difficulty?: string
-      questions?: Array<any>
-    }
-  }
-  
-  const props = withDefaults(defineProps<Props>(), {
-    quizData: () => ({
-      title: 'JavaScript 基础知识测试',
-      category: '前端开发',
-      difficulty: 'medium',
-      questions: []
-    })
-  })
-  
-  // 响应式数据
+  // 答题状态数据
   const currentQuestionIndex = ref(0)
   const selectedAnswer = ref<number | null>(null)
   const showAnswer = ref(false)
@@ -195,42 +195,56 @@
   const timer = ref<NodeJS.Timeout | null>(null)
   const questionTimeLimit = 30
   
-  // 模拟题目数据
   const currentQuiz = reactive({
-    title: props.quizData.title || 'JavaScript 基础知识测试',
-    category: props.quizData.category || '前端开发',
-    difficulty: props.quizData.difficulty || 'medium'
+    title: '在线答题',
+    category: '',
+    difficulty: 'medium'
   })
   
-  const questions = ref(props.quizData.questions?.length ? props.quizData.questions : [
-    {
-      question: '以下哪个方法可以向数组末尾添加元素？',
-      options: ['push()', 'pop()', 'shift()', 'unshift()'],
-      correct: 0,
-      explanation: 'push() 方法将一个或多个元素添加到数组的末尾，并返回该数组的新长度。',
-      image: null
-    },
-    {
-      question: 'JavaScript 中 == 和 === 的区别是什么？',
-      options: [
-        '没有区别',
-        '== 比较值，=== 比较值和类型',
-        '== 比较类型，=== 比较值',
-        '=== 性能更差'
-      ],
-      correct: 1,
-      explanation: '== 会进行类型转换后比较，而 === 会同时比较值和类型，不进行类型转换。'
-    },
-    {
-      question: '以下哪个不是 JavaScript 的基本数据类型？',
-      options: ['string', 'number', 'array', 'boolean'],
-      correct: 2,
-      explanation: 'array 是引用数据类型，不是基本数据类型。JavaScript 的基本数据类型有：string、number、boolean、null、undefined、symbol、bigint。'
+  // 题目和选项数据
+  const questions = ref<any[]>([])
+  const loadingQuestions = ref(false)
+
+  // 获取题目和选项
+  const fetchQuestions = async () => {
+    loadingQuestions.value = true
+    try {
+      const qRes = await axios.get('/question/list')
+      const oRes = await axios.get('/question-options/list')
+      console.log('题目接口返回:', qRes.data)
+      console.log('选项接口返回:', oRes.data)
+      if (!Array.isArray(qRes.data) || !Array.isArray(oRes.data)) {
+        ElMessage.error('题目或选项数据格式错误')
+        questions.value = []
+        return
+      }
+      // 合并题目和选项
+      const optionMap = new Map()
+      oRes.data.forEach((opt: any) => {
+        if (!optionMap.has(opt.questionId)) optionMap.set(opt.questionId, [])
+        optionMap.get(opt.questionId).push(opt)
+      })
+      questions.value = qRes.data.map((q: any) => ({
+        ...q,
+        options: (optionMap.get(q.id) || []).map((opt: any) => opt.content),
+        correct: (optionMap.get(q.id) || []).findIndex((opt: any) => opt.isCorrect),
+        explanation: q.explanation || '',
+        image: q.image || null
+      }))
+      if (questions.value.length === 0) {
+        ElMessage.warning('暂无题目数据')
+      }
+    } catch (e) {
+      console.error('获取题目或选项失败', e)
+      ElMessage.error('获取题目或选项失败')
+      questions.value = []
+    } finally {
+      loadingQuestions.value = false
     }
-  ])
+  }
   
   // 计算属性
-  const currentQuestion = computed(() => questions.value[currentQuestionIndex.value])
+  const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || { question: '', options: [], correct: -1, explanation: '', image: null })
   
   // 方法
   const startTimer = () => {
@@ -378,8 +392,7 @@
   
   // 生命周期
   onMounted(() => {
-    totalTime.value = questions.value.length * questionTimeLimit
-    startTimer()
+    fetchQuestions()
   })
   
   onUnmounted(() => {
@@ -728,6 +741,45 @@
     gap: 10px;
     justify-content: center;
     flex-wrap: wrap;
+  }
+  
+  .anonymous-card {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(102,126,234,0.10);
+    padding: 12px 24px 12px 16px;
+    position: absolute;
+    top: 18px;
+    right: 32px;
+    z-index: 10;
+    min-width: 260px;
+    transition: box-shadow 0.2s;
+  }
+  .anonymous-card:hover {
+    box-shadow: 0 4px 24px rgba(102,126,234,0.18);
+  }
+  .anon-icon {
+    font-size: 28px;
+    margin-right: 14px;
+    color: #764ba2;
+  }
+  .anon-desc {
+    flex: 1;
+  }
+  .anon-title {
+    font-weight: 600;
+    font-size: 16px;
+    color: #333;
+  }
+  .anon-tip {
+    font-size: 13px;
+    color: #888;
+    margin-top: 2px;
+  }
+  .anon-switch {
+    margin-left: 18px;
   }
   
   @media (max-width: 768px) {
