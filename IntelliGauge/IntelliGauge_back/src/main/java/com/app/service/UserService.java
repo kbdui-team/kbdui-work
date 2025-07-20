@@ -43,6 +43,8 @@ public class UserService {
     public boolean updateUser(UserDTO user) {
         // 将 UserDTO 转换为 UserDO 实体类
         UserDO userEntity = convertToEntity(user);
+        System.out.println("1:");
+        System.out.println(user);
         // 使用 userDAO 更新数据
         return userDAO.updateById(userEntity) > 0;
     }

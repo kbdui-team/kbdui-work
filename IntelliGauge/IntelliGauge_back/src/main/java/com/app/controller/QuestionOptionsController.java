@@ -12,6 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/question-options")
 @Slf4j
+@CrossOrigin
 public class QuestionOptionsController {
     @Resource
     private QuestionOptionsService questionOptionsService;

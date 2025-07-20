@@ -14,6 +14,8 @@ export default mergeConfig(
   server: {
     proxy: {
       '/user': 'http://localhost:5555',
+      '/question-options': 'http://localhost:5555',
+      '/question': 'http://localhost:5555',
       // 其他后端接口前缀也可以加
     }
   }

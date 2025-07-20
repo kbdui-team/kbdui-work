@@ -12,6 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/question")
 @Slf4j
+@CrossOrigin
 public class QuestionController {
     @Resource
     private QuestionService questionService;

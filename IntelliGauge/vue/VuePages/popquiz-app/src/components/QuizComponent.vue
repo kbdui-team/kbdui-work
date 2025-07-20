@@ -170,7 +170,7 @@
   </template>
   
   <script setup lang="ts">
-  import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, reactive, computed, onMounted, onUnmounted, inject } from 'vue'
 
   import { ElMessage } from 'element-plus'
   import { 
@@ -205,38 +205,53 @@
   const questions = ref<any[]>([])
   const loadingQuestions = ref(false)
 
+  const baseurl = inject('baseurl') as string
+
   // 获取题目和选项
   const fetchQuestions = async () => {
     loadingQuestions.value = true
     try {
-      const qRes = await axios.get('/question/list')
-      const oRes = await axios.get('/question-options/list')
-      console.log('题目接口返回:', qRes.data)
-      console.log('选项接口返回:', oRes.data)
-      if (!Array.isArray(qRes.data) || !Array.isArray(oRes.data)) {
-        ElMessage.error('题目或选项数据格式错误')
-        questions.value = []
-        return
+      const ts = Date.now();
+      // 兼容baseurl不存在时的绝对路径
+      const qUrl = baseurl ? `${baseurl}/question/list?t=${ts}` : `/question/list?t=${ts}`;
+      const oUrl = baseurl ? `${baseurl}/question-options/list?t=${ts}` : `/question-options/list?t=${ts}`;
+      const qRes = await axios.get(qUrl)
+      const oRes = await axios.get(oUrl)
+      console.log('题目接口请求:', qUrl, '返回:', qRes.data)
+      console.log('选项接口请求:', oUrl, '返回:', oRes.data)
+      // 严格按后端字段名判断
+      const qList = Array.isArray(qRes.data) ? qRes.data : [];
+      const oList = Array.isArray(oRes.data) ? oRes.data : [];
+      if (!qList.length || !oList.length) {
+        ElMessage.error('题目或选项数据格式错误');
+        questions.value = [];
+        return;
       }
       // 合并题目和选项
-      const optionMap = new Map()
-      oRes.data.forEach((opt: any) => {
-        if (!optionMap.has(opt.questionId)) optionMap.set(opt.questionId, [])
-        optionMap.get(opt.questionId).push(opt)
-      })
-      questions.value = qRes.data.map((q: any) => ({
-        ...q,
-        options: (optionMap.get(q.id) || []).map((opt: any) => opt.content),
-        correct: (optionMap.get(q.id) || []).findIndex((opt: any) => opt.isCorrect),
-        explanation: q.explanation || '',
-        image: q.image || null
-      }))
+      const optionMap = new Map();
+      oList.forEach((opt: any) => {
+        if (!optionMap.has(opt.questionId)) optionMap.set(opt.questionId, []);
+        optionMap.get(opt.questionId).push(opt);
+      });
+      questions.value = qList.map((q: any) => {
+        const opts = optionMap.get(q.id) || [];
+        // 选项按optionOrder排序（A/B/C/D...）
+        opts.sort((a: any, b: any) => (a.optionOrder > b.optionOrder ? 1 : -1));
+        return {
+          ...q,
+          question: q.questionText || '',
+          options: opts.map((opt: any) => opt.optionText),
+          correct: opts.findIndex((opt: any) => String(opt.isCorrect).toLowerCase() === 'true'),
+          explanation: q.explanation || '',
+          image: q.image || null
+        };
+      });
       if (questions.value.length === 0) {
         ElMessage.warning('暂无题目数据')
       }
     } catch (e) {
       console.error('获取题目或选项失败', e)
-      ElMessage.error('获取题目或选项失败')
+      ElMessage.error('获取题目或选项失败: ' + (e && e.message ? e.message : ''))
       questions.value = []
     } finally {
       loadingQuestions.value = false
