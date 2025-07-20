@@ -149,42 +149,54 @@ const selectRole = (role: string) => {
 }
 
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
-
+  if (!loginFormRef.value) return;
   await loginFormRef.value.validate(async (valid: unknown) => {
     if (valid) {
-      loading.value = true
+      // 只允许数字ID
+      if (!/^\d+$/.test(loginForm.username)) {
+        ElMessage.error('请输入正确的用户ID（数字）');
+        return;
+      }
+      loading.value = true;
       try {
-        // 通过GET /user/get/{id}获取用户信息
-        const response = await axios.get(`${baseurl}/user/get/${loginForm.username}`)
-        loading.value = false
-        const user = response.data
-        // 判断用户是否存在及密码是否匹配
-        if (user && user.password === loginForm.password) {
-          localStorage.setItem('isLoggedIn', 'true')
-          localStorage.setItem('currentUser', JSON.stringify(user))
-          ElMessage.success(`${roleNames[selectedRole.value]}登录成功！欢迎回来`)
+        // 用ID查用户
+        const response = await axios.get(`${baseurl}/user/get/${loginForm.username}`);
+        loading.value = false;
+        const user = response.data;
+        if (!user) {
+          ElMessage.error('用户不存在或密码错误');
+          loginForm.password = '';
+          return;
+        }
+        // 角色校验
+        if (selectedRole.value === 'student' && user.userType !== 'student') {
+          ElMessage.error('该账号不是学生账号，无法以学生身份登录');
+          return;
+        }
+        if (selectedRole.value === 'teacher' && user.userType !== 'teacher') {
+          ElMessage.error('该账号不是教师账号，无法以教师身份登录');
+          return;
+        }
+        if (user.password === loginForm.password) {
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          ElMessage.success(`${roleNames[selectedRole.value]}登录成功！欢迎回来`);
           setTimeout(() => {
-            const targetRoute = ROLE_ROUTES[selectedRole.value]
-            router.push(targetRoute)
-          }, 1000)
+            const targetRoute = ROLE_ROUTES[selectedRole.value];
+            router.push(targetRoute);
+          }, 1000);
         } else {
-          ElMessage.error('账号或密码错误，请重新输入')
-          loginForm.password = ''
+          ElMessage.error('用户不存在或密码错误');
+          loginForm.password = '';
         }
-      } catch (error: unknown) {
-        let msg = '账号或密码错误，请重新输入'
-        if (typeof error === 'object' && error !== null && 'response' in error) {
-          // @ts-expect-error 这里为了兼容axios error类型访问response属性
-          msg = error.response?.data?.message || msg
-        }
-        loading.value = false
-        ElMessage.error(msg)
+      } catch {
+        loading.value = false;
+        ElMessage.error('用户不存在或密码错误');
       }
     } else {
-      ElMessage.error('请填写完整的登录信息')
+      ElMessage.error('请填写完整的登录信息');
     }
-  })
+  });
 }
 
 const goToRegister = () => {
