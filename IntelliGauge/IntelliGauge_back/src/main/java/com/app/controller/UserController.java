@@ -12,6 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/user")
 @Slf4j
+@CrossOrigin
 public class UserController {
     @Resource
     private UserService userService;
@@ -45,6 +46,7 @@ public class UserController {
      */
     @PutMapping("/update")
     public boolean updateUser(@RequestBody UserDTO user) {
+        System.out.println("aaa");
         return userService.updateUser(user);
     }
 

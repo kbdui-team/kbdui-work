@@ -314,8 +314,8 @@
     </div>
   </template>
   
-  <script setup>
-  import { ref, reactive, onMounted, inject } from 'vue'
+  <script setup lang="ts">
+  import { ref, reactive, onMounted, inject, watch } from 'vue'
   import axios from 'axios'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
@@ -334,16 +334,22 @@
     avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png'
   })
   
-  // 基本信息表单，字段与后端UserDTO一致
+  // 基本信息表单，字段与后端UserDTO一致，并补充页面字段
   const basicForm = reactive({
-    id: 0,
+    id: '',
     userName: '',
     realName: '',
     email: '',
     phone: '',
     status: '',
     password: '',
-    userType: ''
+    userType: '',
+    name: '',
+    gender: '',
+    studentId: '',
+    class: '',
+    enrollmentDate: '',
+    bio: ''
   })
   
   // 密码修改表单
@@ -398,8 +404,9 @@
     confirmPassword: [
       { required: true, message: '请再次输入新密码', trigger: 'blur' },
       {
-        validator: (rule, value, callback) => {
-          if (value !== passwordForm.newPassword) {
+        validator: (rule: unknown, value: unknown, callback: (err?: Error) => void) => {
+          const f = rule as { newPassword: string }
+          if (value !== f.newPassword) {
             callback(new Error('两次输入的密码不一致'))
           } else {
             callback()
@@ -411,9 +418,10 @@
   }
   
   // 头像上传前检查
-  const beforeAvatarUpload = (file) => {
-    const isJPG = file.type === 'image/jpeg' || file.type === 'image/png'
-    const isLt2M = file.size / 1024 / 1024 < 2
+  const beforeAvatarUpload = (file: unknown) => {
+    const f = file as File & { type: string; size: number }
+    const isJPG = f.type === 'image/jpeg' || f.type === 'image/png'
+    const isLt2M = f.size / 1024 / 1024 < 2
   
     if (!isJPG) {
       ElMessage.error('上传头像只能是 JPG/PNG 格式!')
@@ -425,8 +433,9 @@
   }
   
   // 头像上传成功
-  const handleAvatarSuccess = (response, file) => {
-    userInfo.avatar = URL.createObjectURL(file.raw)
+  const handleAvatarSuccess = (response: unknown, file: unknown) => {
+    const f = file as { raw: File }
+    userInfo.avatar = URL.createObjectURL(f.raw)
     ElMessage.success('头像上传成功')
   }
   
@@ -447,11 +456,12 @@
   const saveBasicInfo = async () => {
     if (!basicFormRef.value) return
 
-    await basicFormRef.value.validate(async (valid) => {
+    await basicFormRef.value.validate(async (valid: unknown) => {
       if (valid) {
         saving.value = true
         try {
           // 调用后端接口
+          console.log("basicForm",basicForm)
           const res = await axios.put(`${baseurl}/user/update`, basicForm)
           saving.value = false
           if (res.data === true) {
@@ -481,7 +491,7 @@
   const changePassword = async () => {
     if (!passwordFormRef.value) return
   
-    await passwordFormRef.value.validate((valid) => {
+    await passwordFormRef.value.validate((valid: unknown) => {
       if (valid) {
         changingPassword.value = true
         
@@ -549,17 +559,17 @@
     if (userStr) {
       try {
         const user = JSON.parse(userStr)
-        basicForm.id = user.id || 0
-        basicForm.userName = user.userName || ''
-        basicForm.realName = user.realName || ''
-        basicForm.email = user.email || ''
-        basicForm.phone = user.phone || ''
-        basicForm.status = user.status || ''
-        basicForm.password = user.password || ''
-        basicForm.userType = user.userType || ''
+        Object.keys(basicForm).forEach(key => {
+          if (user[key as keyof typeof basicForm] !== undefined) basicForm[key as keyof typeof basicForm] = user[key as keyof typeof basicForm]
+        })
       } catch {}
     }
   })
+
+  // 实时同步basicForm到localStorage
+  watch(basicForm, (val) => {
+    localStorage.setItem('currentUser', JSON.stringify(val))
+  }, { deep: true })
   </script>
   
   <style scoped>

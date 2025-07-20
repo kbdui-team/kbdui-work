@@ -234,6 +234,7 @@ import {
   Trophy, Promotion, Setting, Bell, SwitchButton,
   Refresh, FullScreen
 } from '@element-plus/icons-vue'
+
 import * as QuizComponent from '../components/QuizComponent.vue' // 引入答题组件
 
 const router = useRouter()
