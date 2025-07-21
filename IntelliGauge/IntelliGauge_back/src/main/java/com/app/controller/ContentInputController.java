@@ -12,6 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/content-input")
 @Slf4j
+@CrossOrigin
 public class ContentInputController {
     @Resource
     private ContentInputService contentInputService;
