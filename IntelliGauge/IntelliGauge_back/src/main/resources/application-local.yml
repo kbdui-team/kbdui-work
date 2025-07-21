@@ -10,17 +10,6 @@ server:
       min-spare: 10
   max-http-header-size: 500KB  # 请求头传参限制
 
-#deepseek配置
-deepseek:
-  api:
-    key: sk-8ddc7f72619c4a6083edc34ff7968132
-
-#@Value不能给静态变量注入，请直接去SparkClient修改
-iflytek:
-  api:
-    apiId: f354f4f6
-    secret_key: 6979c7fdaa5d4d7bad897441b87b8626
-
 ## 日志配置
 #logging:
 #  level:

@@ -8,31 +8,33 @@ import org.apache.commons.lang.StringEscapeUtils;
 
 import cn.hutool.json.JSONUtil;
 import com.google.gson.Gson;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 import sign.LfasrSignature;
 import tool.HttpUtil;
 
+import javax.annotation.PostConstruct;
+
+
+@Component
 public class SparkClient {
     private static final String HOST = "https://raasr.xfyun.cn";
-    private static String AUDIO_FILE_PATH;
-    private static final String appid = "f354f4f6";
-    private static final String keySecret = "6979c7fdaa5d4d7bad897441b87b8626";
+
+    @Value("${iflytek.api.apiId}")
+    private String appid;
+
+    @Value("${iflytek.api.secret_key}")
+    private String keySecret;
 
     private static final Gson gson = new Gson();
 
-//    static {
-//        try {
-//            AUDIO_FILE_PATH = SparkClient.class.getResource("/").toURI().getPath() + "/audio/合成音频.wav";
-//        } catch (URISyntaxException e) {
-//            e.printStackTrace();
-//        }
-//    }
 
-
-    public static String transcribe(File audio) throws IOException, SignatureException, InterruptedException {
-        String result = upload(audio);
+    public String transcribe(File audio) throws IOException, SignatureException, InterruptedException {
+        String result = this.upload(audio);
         String jsonStr = StringEscapeUtils.unescapeJavaScript(result);
         String orderId = String.valueOf(JSONUtil.getByPath(JSONUtil.parse(jsonStr), "content.orderId"));
-        String fullResult = getResult(orderId);
+        String fullResult = this.getResult(orderId);
         
         // 解析JSON结果，提取转写文本
         try {
@@ -51,7 +53,7 @@ public class SparkClient {
         }
     }
 
-    private static String upload(File audio) throws SignatureException, FileNotFoundException {
+    private String upload(File audio) throws SignatureException, FileNotFoundException {
         HashMap<String, Object> map = new HashMap<>(16);
         String fileName = audio.getName();
         long fileSize = audio.length();
@@ -74,7 +76,7 @@ public class SparkClient {
         return response;
     }
 
-    private static String getResult(String orderId) throws SignatureException, InterruptedException, IOException {
+    private String getResult(String orderId) throws SignatureException, InterruptedException, IOException {
         HashMap<String, Object> map = new HashMap<>(16);
         map.put("orderId", orderId);
         LfasrSignature lfasrSignature = new LfasrSignature(appid, keySecret);

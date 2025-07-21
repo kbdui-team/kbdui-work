@@ -3,6 +3,7 @@ package com.app.controller;
 import client.DeepseekClient;
 import client.SparkClient;
 import com.app.dto.Question;
+import org.springframework.beans.factory.annotation.Autowired;
 import response.ApiResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
@@ -20,6 +21,9 @@ public class ChatController {
     private String apiKey;
 
     private final DeepseekClient deepseekClient = new DeepseekClient();
+
+    @Autowired
+    private SparkClient sparkClient;
 
     /**
      * 向DeepSeek-V3提问
@@ -98,7 +102,7 @@ public class ChatController {
             File tempFile = convertMultipartFileToFile(audioFile);
             
             // 2. 调用SparkClient进行音频转写
-            String transcribedText = SparkClient.transcribe(tempFile);
+            String transcribedText = sparkClient.transcribe(tempFile);
             
             // 3. 检查转写结果
             if (transcribedText == null || transcribedText.trim().isEmpty()) {
