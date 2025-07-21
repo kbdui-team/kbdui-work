@@ -3,7 +3,13 @@
       <!-- 头部信息栏 -->
       <div class="quiz-header">
         <div class="quiz-info">
-          <div class="quiz-title">{{ currentQuiz.title }}</div>
+          <div class="quiz-title-row">
+            <div class="quiz-title">{{ currentQuiz.title }}</div>
+            <el-radio-group v-model="radio1" class="quiz-options-group">
+              <el-radio value="1" size="large" border>实名作答</el-radio>
+              <el-radio value="2" size="large" border>匿名作答</el-radio>
+            </el-radio-group>
+          </div>
           <div class="quiz-meta">
             <span class="question-count">{{ currentQuestionIndex + 1 }}/{{ questions.length }}</span>
             <span class="category">{{ currentQuiz.category }}</span>
@@ -21,19 +27,7 @@
           </div>
         </div>
       </div>
-  
-      <!-- 匿名答题按钮 -->
-      <div class="anonymous-card">
-        <el-icon class="anon-icon">
-          <Hide v-if="isAnonymous" />
-          <UserFilled v-else />
-        </el-icon>
-        <div class="anon-desc">
-          <div class="anon-title">匿名答题</div>
-          <div class="anon-tip">{{ isAnonymous ? '当前为匿名答题，成绩不会记录到个人名下' : '当前为实名答题，成绩将记录到个人名下' }}</div>
-        </div>
-        <el-switch v-model="isAnonymous" active-text="匿名" inactive-text="实名" class="anon-switch" />
-      </div>
+      
   
       <!-- 进度条 -->
       <div class="progress-bar">
@@ -41,6 +35,7 @@
           class="progress-fill" 
           :style="{ width: ((currentQuestionIndex + 1) / questions.length) * 100 + '%' }"
         ></div>
+        
       </div>
   
       <!-- 答题区域，空值保护 -->
@@ -55,7 +50,7 @@
               <div class="question-timer">
                 <el-progress 
                   type="circle" 
-                  :percentage="(timeLeft / questionTimeLimit) * 100" 
+                  :percentage="Number(((timeLeft / questionTimeLimit) * 100).toFixed(2))" 
                   :width="60"
                   :stroke-width="6"
                   :color="getTimerColor()"
@@ -179,7 +174,10 @@
   } from '@element-plus/icons-vue'
   
   import axios from 'axios'
-  
+  // import { ref } from 'vue'
+
+const radio1 = ref('1')
+const radio2 = ref('1')
   // 定义组件事件
   const emit = defineEmits(['backToHome', 'quizComplete'])
   
@@ -795,6 +793,16 @@
   }
   .anon-switch {
     margin-left: 18px;
+  }
+  
+  .quiz-title-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .quiz-options-group {
+    margin-left: 16px;
   }
   
   @media (max-width: 768px) {

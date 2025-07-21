@@ -6,7 +6,10 @@ import com.app.dao.QuestionDAO;
 import com.app.dto.QuestionDTO;
 import com.app.entity.QuestionDO;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import javax.annotation.Resource;
 import java.util.List;
@@ -21,9 +24,20 @@ public class QuestionService {
     @Resource
     private QuestionDAO questionDAO;
 
-    public boolean addQuestion(QuestionDTO question) {
-        QuestionDO questionEntity = convertToEntity(question);
-        return questionDAO.insert(questionEntity) > 0;
+    @PostMapping("/add")
+    public ResponseEntity<QuestionDTO> addQuestion(@RequestBody QuestionDTO questionDTO) {
+        // 1. 转换为实体对象
+        QuestionDO questionDO = convertToEntity(questionDTO);
+
+        // 2. 插入数据库并获取生成的ID
+        Integer insertResult = questionDAO.insert(questionDO);
+        // 4. 获取插入后的完整对象（包含自动生成的ID）
+        QuestionDO savedQuestionDO = questionDAO.selectById(questionDO.getId());
+
+        // 5. 转换回DTO并返回
+        QuestionDTO responseDTO = convertToDTO(savedQuestionDO);
+
+        return ResponseEntity.ok(responseDTO);
     }
 
     public boolean deleteQuestionById(Integer id) {

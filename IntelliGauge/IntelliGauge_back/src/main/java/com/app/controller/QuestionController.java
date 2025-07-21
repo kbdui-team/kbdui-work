@@ -3,6 +3,7 @@ package com.app.controller;
 import com.app.dto.QuestionDTO;
 import com.app.service.QuestionService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -21,7 +22,8 @@ public class QuestionController {
      * 添加题目信息
      */
     @PostMapping("/add")
-    public boolean addQuestion(@RequestBody QuestionDTO question) {
+    public ResponseEntity<QuestionDTO> addQuestion(@RequestBody QuestionDTO question) {
+        System.out.println("添加题目aaa："+question);
         return questionService.addQuestion(question);
     }
 

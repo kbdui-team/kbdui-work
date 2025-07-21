@@ -22,6 +22,7 @@ public class UserController {
      */
     @PostMapping("/add")
     public boolean addUser(@RequestBody UserDTO user) {
+        System.out.println(user);
         return userService.addUser(user);
     }
 

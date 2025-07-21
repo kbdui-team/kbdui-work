@@ -94,7 +94,7 @@
                     </div>
                   </div>
                 </div>
-  
+
                 <!-- 详细统计 -->
                 <div class="detailed-stats" v-if="selectedQuizData">
                   <el-card class="stats-card">
@@ -139,7 +139,7 @@
                         </div>
                       </el-col>
                     </el-row>
-  
+
                     <!-- 答案分布图表 -->
                     <div class="answer-distribution">
                       <h4>答案分布</h4>
@@ -164,84 +164,8 @@
                 </div>
               </div>
             </el-tab-pane>
-  
+
             <!-- 学生视图 -->
-            <el-tab-pane label="学生视图" name="student">
-              <div class="student-view">
-                <!-- 学生个人信息卡片 -->
-                <el-card class="student-card">
-                  <div class="student-header">
-                    <el-avatar :size="60" :src="studentInfo.avatar">
-                      <i class="el-icon-user-solid"></i>
-                    </el-avatar>
-                    <div class="student-info">
-                      <h3>{{ studentInfo.name }}</h3>
-                      <p>{{ studentInfo.studentId }}</p>
-                    </div>
-                  </div>
-                  
-                  <div class="student-stats">
-                    <div class="stat-item">
-                      <div class="stat-value">{{ studentInfo.accuracy }}%</div>
-                      <div class="stat-label">我的正确率</div>
-                    </div>
-                    <div class="stat-item">
-                      <div class="stat-value">{{ studentInfo.rank }}</div>
-                      <div class="stat-label">排名</div>
-                    </div>
-                    <div class="stat-item">
-                      <div class="stat-value">{{ studentInfo.completed }}</div>
-                      <div class="stat-label">已完成</div>
-                    </div>
-                  </div>
-                </el-card>
-  
-                <!-- 个人答题记录 -->
-                <el-card class="answer-record">
-                  <template v-slot:header>
-<div >
-                    <span>我的答题记录</span>
-                  </div>
-</template>
-                  
-                  <el-table :data="studentAnswers" style="width: 100%">
-                    <el-table-column prop="quizTitle" label="题目" width="200"></el-table-column>
-                    <el-table-column prop="myAnswer" label="我的答案" width="120"></el-table-column>
-                    <el-table-column prop="correctAnswer" label="正确答案" width="120"></el-table-column>
-                    <el-table-column label="结果" width="100">
-                      <template v-slot="scope">
-                        <el-tag :type="scope.row.isCorrect ? 'success' : 'danger'">
-                          {{ scope.row.isCorrect ? '正确' : '错误' }}
-                        </el-tag>
-                      </template>
-                    </el-table-column>
-                    <el-table-column prop="answerTime" label="答题时间"></el-table-column>
-                  </el-table>
-                </el-card>
-  
-                <!-- 排名榜 -->
-                <el-card class="ranking-card">
-                  <template v-slot:header>
-<div >
-                    <span>实时排名</span>
-                  </div>
-</template>
-                  <div class="ranking-list scrollable-ranking-list">
-                    <div 
-                      v-for="(student, index) in rankings" 
-                      :key="student.id"
-                      class="ranking-item"
-                      :class="{ 'my-rank': student.id === studentInfo.id }">
-                      <div class="rank-number">{{ index + 1 }}</div>
-                      <div class="rank-info">
-                        <div class="rank-name">{{ student.name }}</div>
-                        <div class="rank-score">{{ student.accuracy }}%</div>
-                      </div>
-                    </div>
-                  </div>
-                </el-card>
-              </div>
-            </el-tab-pane>
           </el-tabs>
         </div>
       </div>

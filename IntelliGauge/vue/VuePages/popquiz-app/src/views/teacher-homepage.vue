@@ -83,14 +83,14 @@
                 <span>教学记录</span>
               </div>
 
-              <!-- <div 
+              <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'orator_result' }"
                 @click="navigateTo('orator_result')"
               >
                 <el-icon><View /></el-icon>
                 <span>练习记录</span>
-              </div> -->
+              </div>
             </div>
           </div>
           
@@ -186,6 +186,7 @@
           <StudentManagementComponent v-if="activeItem === 'scores'" />
           <ScoreManagementComponent v-else-if="activeItem === 'ranking'" />
           <TeachingRecordComponent v-else-if="activeItem === 'review'" />
+          <component :is="OratorResult.default" v-else-if="activeItem === 'orator_result'" />
           <CollectComponent 
             v-else
             @uploadSuccess="handleUploadSuccess"
@@ -208,6 +209,7 @@
   import StudentManagementComponent from '@/components/StudentManagementComponent.vue'
   import ScoreManagementComponent from '../components/ScoreManagementComponent.vue'
   import TeachingRecordComponent from '../components/TeachingRecordComponent.vue'
+  import * as OratorResult from './orator_result.vue'
   import {
     User, School, Postcard, Phone, Message,
     Reading, Notebook, View, TrendCharts, DataAnalysis,

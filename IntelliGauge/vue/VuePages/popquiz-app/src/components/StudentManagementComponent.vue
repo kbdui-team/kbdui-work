@@ -14,8 +14,8 @@
           <el-button type="primary" @click="showAddStudentDialog" :icon="Plus">
             添加学生
           </el-button>
-          <el-button type="success" @click="showBatchImportDialog" :icon="Upload">
-            批量导入
+          <el-button type="success" @click="showAddClassDialog" :icon="Upload">
+            新建班级
           </el-button>
           <el-button type="info" @click="exportStudents" :icon="Download">
             导出数据
@@ -365,6 +365,12 @@
         width="500px"
       >
         <el-form :model="newClassForm" :rules="classRules" ref="newClassFormRef" label-width="80px">
+          <el-form-item label="年级" prop="grade">
+            <el-input v-model="newClassForm.grade" placeholder="请输入年级" />
+          </el-form-item>
+          <el-form-item label="专业" prop="major">
+            <el-input v-model="newClassForm.major" placeholder="请输入专业" />
+          </el-form-item>
           <el-form-item label="班级名称" prop="name">
             <el-input v-model="newClassForm.name" placeholder="请输入班级名称" />
           </el-form-item>
@@ -386,11 +392,14 @@
   <script setup lang="ts">
   import { ref, reactive, computed, onMounted } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
+  import axios from 'axios'
+  import { inject } from 'vue'
   import {
     Plus, Upload, Download, Search, More, User, EditPen, 
     Trophy, TrendCharts, Clock
   } from '@element-plus/icons-vue'
   
+  const baseurl = inject('baseurl') as string || ''
   // 响应式数据
   const searchKeyword = ref('')
   const selectedClass = ref('')
@@ -419,7 +428,9 @@
   
   const newClassForm = reactive({
     name: '',
-    description: ''
+    description: '',
+    grade: '',
+    major: ''
   })
   
   // 验证规则
@@ -435,7 +446,9 @@
   }
   
   const classRules = {
-    name: [{ required: true, message: '请输入班级名称', trigger: 'blur' }]
+    name: [{ required: true, message: '请输入班级名称', trigger: 'blur' }],
+    grade: [{ required: true, message: '请输入年级', trigger: 'blur' }],
+    major: [{ required: true, message: '请输入专业', trigger: 'blur' }]
   }
   
   // 模拟数据
@@ -659,9 +672,7 @@
     addClassVisible.value = true
   }
   
-  const showBatchImportDialog = () => {
-    ElMessage.info('批量导入功能开发中...')
-  }
+
   
   const exportStudents = () => {
     ElMessage.success('数据导出成功!')
@@ -711,39 +722,33 @@
     }
   }
   
-  const submitNewStudent = () => {
-    // 这里应该调用API添加学生
-    const className = classList.value.find(c => c.id === newStudentForm.classId)?.name || ''
-    
-    const newStudent = {
-      id: Date.now(),
-      name: newStudentForm.name,
-      studentId: newStudentForm.studentId,
-      email: newStudentForm.email,
-      phone: newStudentForm.phone,
-      classId: newStudentForm.classId,
-      className: className,
-      avatar: 'https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png',
-      completedQuizzes: 0,
-      averageScore: 0,
-      rank: 0,
-      activityLevel: '新',
-      status: 'new',
-      lastLoginTime: '从未登录',
-      enrollmentDate: new Date().toISOString().split('T')[0],
-      registerTime: new Date().toLocaleString(),
-      totalStudyTime: 0
+  const submitNewStudent = async () => {
+    try {
+      // 构造后端需要的 userDTO 数据
+      const userDTO = {
+        userName: newStudentForm.name, // 这里假设 userName 用学生姓名
+        realName: newStudentForm.name,
+        email: newStudentForm.email,
+        phone: newStudentForm.phone,
+        status: 'new',
+        password: newStudentForm.password,
+        userType: 'student'
+      }
+      // 强制拼接 baseurl，避免走前端端口
+      const url = `${baseurl}/user/add`
+      const res = await axios.post(url, userDTO)
+      if (res.data === true) {
+        ElMessage.success('学生添加成功!')
+        addStudentVisible.value = false
+        Object.keys(newStudentForm).forEach(key => {
+          newStudentForm[key] = ''
+        })
+      } else {
+        ElMessage.error('添加失败')
+      }
+    } catch (e) {
+      ElMessage.error('添加学生失败: ' + (e?.message || '未知错误'))
     }
-    
-    studentsList.value.unshift(newStudent)
-    addStudentVisible.value = false
-    
-    // 重置表单
-    Object.keys(newStudentForm).forEach(key => {
-      newStudentForm[key] = ''
-    })
-    
-    ElMessage.success('学生添加成功!')
   }
   
 
@@ -752,6 +757,8 @@ const submitNewClass = () => {
     id: Date.now(),
     name: newClassForm.name,
     description: newClassForm.description,
+    grade: newClassForm.grade,
+    major: newClassForm.major,
     studentCount: 0,
     averageScore: 0,
     activeRate: 0
@@ -763,6 +770,8 @@ const submitNewClass = () => {
   // 重置表单
   newClassForm.name = ''
   newClassForm.description = ''
+  newClassForm.grade = ''
+  newClassForm.major = ''
   
   ElMessage.success('班级添加成功!')
 }

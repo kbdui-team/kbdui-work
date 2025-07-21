@@ -22,6 +22,7 @@ public class QuestionOptionsService {
     private QuestionOptionsDAO questionOptionsDAO;
 
     public boolean addQuestionOptions(QuestionOptionsDTO questionOptions) {
+
         QuestionOptionsDO questionOptionsEntity = convertToEntity(questionOptions);
         return questionOptionsDAO.insert(questionOptionsEntity) > 0;
     }
@@ -101,6 +102,7 @@ public class QuestionOptionsService {
         questionOptions.setOptionText(questionOptionsDTO.getOptionText());
         questionOptions.setOptionOrder(questionOptionsDTO.getOptionOrder());
         questionOptions.setIsCorrect(questionOptionsDTO.getIsCorrect());
+        System.out.println(questionOptions);
         return questionOptions;
     }
 

@@ -22,6 +22,7 @@ public class QuestionOptionsController {
      */
     @PostMapping("/add")
     public boolean addQuestionOptions(@RequestBody QuestionOptionsDTO questionOptions) {
+        System.out.println("添加题目："+questionOptions);
         return questionOptionsService.addQuestionOptions(questionOptions);
     }
 

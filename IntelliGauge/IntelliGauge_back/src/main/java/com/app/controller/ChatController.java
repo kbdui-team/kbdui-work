@@ -15,6 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/deepseek")
+@CrossOrigin
 public class ChatController {
 
     @Value("${deepseek.api.key}")
@@ -45,17 +46,18 @@ public class ChatController {
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "count", defaultValue = "5") int questionCount,
             @RequestParam(value = "model", defaultValue = "v3") String model) {
-
+        System.out.println("生成文件");
         try {
             // 确定使用哪个平台
             boolean useSiliconFlow = "R1".equalsIgnoreCase(model);
-
+            System.out.println(useSiliconFlow+"：生成文件");
             // 调用DeepseekClient生成题目
             List<Question> questions =
                     deepseekClient.generateQuestionsFromFile(apiKey, file, questionCount, useSiliconFlow);
 
             return ApiResponse.success(questions);
         } catch (Exception e) {
+            System.out.println("生成文件失败");
             return ApiResponse.error(500, "题目生成失败: " + e.getMessage());
         }
     }

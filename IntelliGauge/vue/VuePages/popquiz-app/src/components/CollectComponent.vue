@@ -18,11 +18,10 @@
           <el-upload
             class="upload-dragger"
             drag
-            action="/api/upload/text"
+            :http-request="customTextUploadRequest"
             :before-upload="beforeTextUpload"
-            :on-success="handleTextSuccess"
-            :on-error="handleUploadError"
             accept=".txt,.doc,.docx"
+            :show-file-list="false"
           >
             <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
             <div class="el-upload__text">
@@ -218,7 +217,7 @@
   </template>
   
   <script setup lang="ts">
-  import { ref } from 'vue'
+  import { ref, inject } from 'vue'
   import { ElMessage, ElMessageBox } from 'element-plus'
   import {
     Document,
@@ -229,6 +228,7 @@
     UploadFilled,
     View
   } from '@element-plus/icons-vue'
+  import type { UploadRequestOptions } from 'element-plus'
   
   // 定义组件事件
   const emit = defineEmits(['uploadSuccess', 'uploadError'])
@@ -247,36 +247,36 @@
   const videoOCRProgress = ref(0)
   const videoOCRStatus = ref('')
   
-  // 处理记录
-  const processingHistory = ref([
-    {
-      id: 1,
-      filename: '学习资料.docx',
-      type: '文本文件',
-      size: '2.5MB',
-      status: '已完成',
-      extractedText: '这是一份关于机器学习的学习资料，包含了基础概念和实例...',
-      uploadTime: '2024-07-14 14:30'
-    },
-    {
-      id: 2,
-      filename: '课程演示.pptx',
-      type: 'PowerPoint',
-      size: '8.2MB',
-      status: '处理中',
-      extractedText: '正在提取PowerPoint文件中的文本内容...',
-      uploadTime: '2024-07-14 14:25'
-    },
-    {
-      id: 3,
-      filename: '讲座录音.mp3',
-      type: '音频文件',
-      size: '45.6MB',
-      status: '已完成',
-      extractedText: '今天我们来讲解人工智能的基本原理和应用场景...',
-      uploadTime: '2024-07-14 14:20'
-    }
-  ])
+  // 处理记录类型
+  interface ProcessingRecord {
+    id: number
+    filename: string
+    type: string
+    size: string
+    status: string
+    extractedText: string
+    uploadTime: string
+  }
+
+  const processingHistory = ref<ProcessingRecord[]>([])
+  
+  // 新增: 题目和选项 DTO 类型
+  interface QuestionDTO {
+    id?:number
+    lectureId?: number
+    contentInputId?: number
+    questionType?: string
+    questionText: string
+  }
+  interface QuestionOptionsDTO {
+    questionId: number
+    optionText: string
+    optionOrder: string
+    isCorrect: boolean
+  }
+  
+  // 获取后端 baseurl
+  const baseurl = inject('baseurl', 'http://localhost:5555') as string
   
   // 文件上传前验证
   const beforeTextUpload = (file: File) => {
@@ -292,6 +292,127 @@
       return false
     }
     return true
+  }
+
+  // 自定义上传方法，使用 fetch（无超时限制）
+  const customTextUploadRequest = async (option: UploadRequestOptions) => {
+    const file = option.file as File
+    // TODO: 这里可根据实际业务传入或选择 lectureId 和 contentInputId
+    // 目前写死为 1，可根据实际需求传参或弹窗选择
+    const lectureId: number = 1 // 必须为 number，不能为 undefined/null
+    // 生成 10000~99999 的 5 位随机数作为 contentInputId
+    const contentInputId: number = Math.floor(10000 + Math.random() * 90000)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('count', '5')
+      formData.append('model', 'v3')
+      // 超时控制：10分钟
+      const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
+        return Promise.race([
+          fetch(url, opts),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
+        ])
+      }
+      let response: Response
+      try {
+        response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions`, {
+          method: 'POST',
+          body: formData
+        }) as Response
+      } catch {
+        ElMessage.error('题目生成请求超时，已判定为失败')
+        addProcessingRecord(file, '文本文件', '请求超时', '失败')
+        if (option.onError) {
+          option.onError({
+            name: 'UploadAjaxError',
+            status: 408,
+            method: 'POST',
+            url: `${baseurl}/deepseek/generate-questions`,
+            message: '请求超时'
+          })
+        }
+        return
+      }
+      const result = await response.json()
+      if ((result.code === 0 || result.code === 200) && result.data) {
+        ElMessage.success('题目生成成功！')
+        const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
+        addProcessingRecord(file, '文本文件', preview, '已完成')
+        // 新增: 循环存储题目和选项
+        if (Array.isArray(result.data)) {
+          for (const q of result.data) {
+            // 1. 存储题目
+            const questionDTO: QuestionDTO = {
+              questionText: q.question,
+              lectureId,
+              contentInputId,
+              questionType:"单选题"
+              
+            }
+            const questionRes = await fetch(`${baseurl}/question/add`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(questionDTO)
+            })
+            
+            console.log("dkasjhdk",questionRes)
+            const questionSaved = await questionRes.json()
+            console.log(questionSaved)
+            const questionId = questionSaved.id
+            // 2. 存储选项（每个选项单独POST，四个选项同属一个questionId）
+            if (Array.isArray(q.options)) {
+              for (let i = 0; i < q.options.length; i++) {
+                const optionDTO: QuestionOptionsDTO = {
+                  questionId: questionId, // 确保等于刚刚保存问题的id
+                  optionText: q.options[i],
+                  optionOrder: String.fromCharCode(65 + i), // A/B/C/D
+                  isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+                }
+                console.log("dsaiwe",optionDTO)
+                // 每个选项单独POST，获得自己的id
+                await fetch(`${baseurl}/question-options/add`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(optionDTO)
+                })
+              }
+            }
+          }
+        }
+        if (option.onSuccess) { option.onSuccess(result) }
+      } else {
+        ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
+        addProcessingRecord(file, '文本文件', result.message || '未知错误', '失败')
+        if (option.onError) {
+          option.onError({
+            name: 'UploadAjaxError',
+            status: 500,
+            method: 'POST',
+            url: `${baseurl}/deepseek/generate-questions`,
+            message: result.message || '题目生成失败'
+          })
+        }
+      }
+    } catch {
+      ElMessage.error('题目生成请求失败')
+      addProcessingRecord(file, '文本文件', '上传失败', '失败')
+      if (option.onError) {
+        option.onError({
+          name: 'UploadAjaxError',
+          status: 500,
+          method: 'POST',
+          url: `${baseurl}/deepseek/generate-questions`,
+          message: '题目生成请求失败'
+        })
+      }
+    }
+  }
+
+  // 上传失败处理
+  const handleUploadError = (error: unknown, file: File) => {
+    ElMessage.error(`文件上传失败: ${file.name}`)
+    addProcessingRecord(file, '文本文件', '上传失败', '失败')
   }
   
   const beforePPTUpload = (file: File) => {
@@ -357,57 +478,45 @@
   const beforeVideoOCRUpload = beforeVideoUpload
   
   // 上传成功处理
-  const handleTextSuccess = (response: any, file: any) => {
-    ElMessage.success('文本文件上传成功!')
-    addProcessingRecord(file, '文本文件', response.extractedText)
-    emit('uploadSuccess', { type: 'text', file, response })
-  }
-  
-  const handlePPTSuccess = (response: any, file: any) => {
+  const handlePPTSuccess = (response: unknown, file: File) => {
     ElMessage.success('PowerPoint文件上传成功!')
-    addProcessingRecord(file, 'PowerPoint', response.extractedText)
+    addProcessingRecord(file, 'PowerPoint', (response as {extractedText: string}).extractedText, '已完成')
     emit('uploadSuccess', { type: 'ppt', file, response })
   }
   
-  const handlePDFSuccess = (response: any, file: any) => {
+  const handlePDFSuccess = (response: unknown, file: File) => {
     ElMessage.success('PDF文件上传成功!')
-    addProcessingRecord(file, 'PDF文件', response.extractedText)
+    addProcessingRecord(file, 'PDF文件', (response as {extractedText: string}).extractedText, '已完成')
     emit('uploadSuccess', { type: 'pdf', file, response })
   }
   
-  const handleAudioSuccess = (response: any, file: any) => {
+  const handleAudioSuccess = (response: unknown, file: File) => {
     ElMessage.success('音频文件上传成功!')
-    addProcessingRecord(file, '音频文件', response.extractedText)
+    addProcessingRecord(file, '音频文件', (response as {extractedText: string}).extractedText, '已完成')
     emit('uploadSuccess', { type: 'audio', file, response })
   }
   
-  const handleVideoSuccess = (response: any, file: any) => {
+  const handleVideoSuccess = (response: unknown, file: File) => {
     ElMessage.success('视频文件上传成功!')
-    addProcessingRecord(file, '视频文件', response.extractedText)
+    addProcessingRecord(file, '视频文件', (response as {extractedText: string}).extractedText, '已完成')
     emit('uploadSuccess', { type: 'video', file, response })
   }
   
-  const handleVideoOCRSuccess = (response: any, file: any) => {
+  const handleVideoOCRSuccess = (response: unknown, file: File) => {
     ElMessage.success('视频文字识别完成!')
-    addProcessingRecord(file, '视频OCR', response.extractedText)
+    addProcessingRecord(file, '视频OCR', (response as {extractedText: string}).extractedText, '已完成')
     emit('uploadSuccess', { type: 'video-ocr', file, response })
   }
   
-  const handleUploadError = (error: any, file: any) => {
-    ElMessage.error(`文件上传失败: ${file.name}`)
-    console.error('Upload error:', error)
-    emit('uploadError', { error, file })
-  }
-  
   // 添加处理记录
-  const addProcessingRecord = (file: any, type: string, extractedText?: string) => {
-    const newRecord = {
+  const addProcessingRecord = (file: File, type: string, extractedText: string, status: string) => {
+    const newRecord: ProcessingRecord = {
       id: Date.now(),
       filename: file.name,
-      type: type,
+      type,
       size: (file.size / 1024 / 1024).toFixed(2) + 'MB',
-      status: '已完成',
-      extractedText: extractedText || '文本提取中...',
+      status,
+      extractedText,
       uploadTime: new Date().toLocaleString()
     }
     processingHistory.value.unshift(newRecord)
@@ -437,7 +546,7 @@
   }
   
   // 查看详情
-  const viewDetails = (record: any) => {
+  const viewDetails = (record: ProcessingRecord) => {
     ElMessageBox.alert(record.extractedText, `文件详情 - ${record.filename}`, {
       confirmButtonText: '确定',
       type: 'info'
@@ -445,7 +554,7 @@
   }
   
   // 删除记录
-  const deleteRecord = (record: any) => {
+  const deleteRecord = (record: ProcessingRecord) => {
     ElMessageBox.confirm(`确定要删除文件 "${record.filename}" 的处理记录吗?`, '确认删除', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
