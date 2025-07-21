@@ -7,6 +7,8 @@ package tool;
  * @author white
  *
  */
+
+// 这个是旧接口讯飞录音文件转写的文件
 public class SliceIdGenerator {
 
     private static final String INIT_STR = "aaaaaaaaa`";

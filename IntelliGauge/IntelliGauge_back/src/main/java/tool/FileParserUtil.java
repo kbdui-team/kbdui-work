@@ -22,8 +22,9 @@ public class FileParserUtil {
                     "要求：\n" +
                     "1. 题目必须基于文档核心内容\n" +
                     "2. 每道题4个选项，其中1个正确，3个合理干扰项\n" +
-                    "3. 答案使用单个大写字母标识（如：\"A\"）\n" +
-                    "4. 输出格式：严格JSON数组：[{\"question\": \"\", \"options\": [\"A.选项1\", \"B.选项2\", ...], \"answer\": \"A\"}]";
+                    "3. 答案必须根据题目内容确定，不能固定为某个选项\n" +
+                    "4. 答案使用单个大写字母标识（如：\"A\"、\"B\"、\"C\"、\"D\"）\n" +
+                    "5. 输出格式：严格JSON数组：[{\"question\": \"\", \"options\": [\"A.选项1\", \"B.选项2\", ...], \"answer\": \"正确答案对应的选项字母\"}]";
 
     public static String extractTextFromFile(MultipartFile file) throws IOException {
         String fileName = file.getOriginalFilename();

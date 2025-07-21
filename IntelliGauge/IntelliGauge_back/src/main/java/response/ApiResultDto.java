@@ -1,5 +1,6 @@
 package response;
 
+// 这个是旧接口讯飞录音文件转写的文件
 public class ApiResultDto {
 
 	private int ok;

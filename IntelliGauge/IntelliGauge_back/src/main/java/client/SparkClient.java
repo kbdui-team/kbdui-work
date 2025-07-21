@@ -1,294 +1,521 @@
 package client;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
+import java.io.*;
+import java.net.URISyntaxException;
 import java.security.SignatureException;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
+import org.apache.commons.lang.StringEscapeUtils;
 
-import com.alibaba.fastjson.JSON;
-import org.springframework.beans.factory.annotation.Value;
-import response.ApiResultDto;
-import tool.EncryptUtil;
+import cn.hutool.json.JSONUtil;
+import com.google.gson.Gson;
+import sign.LfasrSignature;
 import tool.HttpUtil;
-import tool.SliceIdGenerator;
 
 public class SparkClient {
-    public static final String LFASR_HOST = "http://raasr.xfyun.cn/api";
+    private static final String HOST = "https://raasr.xfyun.cn";
+    private static String AUDIO_FILE_PATH;
+    private static final String appid = "f354f4f6";
+    private static final String keySecret = "6979c7fdaa5d4d7bad897441b87b8626";
 
-    /**
-     * TODO 设置appid和secret_key
-     */
-    // @Value("${iflytek.api.apiId}")
-    private static String APPID = "f354f4f6";
-    // @Value("${iflytek.api.secret_key}")
-    private static String SECRET_KEY = "MDA5MTYxYWMwNzdhYTc1ZTQyZTQ3OGNl";
-    public static final String PREPARE = "/prepare";
-    public static final String UPLOAD = "/upload";
-    public static final String MERGE = "/merge";
-    public static final String GET_RESULT = "/getResult";
-    public static final String GET_PROGRESS = "/getProgress";
+    private static final Gson gson = new Gson();
 
-    /**
-     * 文件分片大小,可根据实际情况调整
-     */
-    public static final int SLICE_SICE = 10485760;// 10M
-
-    /**
-     * 将文件上传并获取转写结果
-     *
-     * @param audio 文件
-     * @return 转写结果字符串
-     */
-    public static String transcribe(File audio) {
-        try (FileInputStream fis = new FileInputStream(audio)) {
-            // 预处理
-            String taskId = prepare(audio);
-
-            // 分片上传文件
-            int len = 0;
-            byte[] slice = new byte[SLICE_SICE];
-            SliceIdGenerator generator = new SliceIdGenerator();
-            while ((len = fis.read(slice)) > 0) {
-                // 上传分片
-                if (fis.available() == 0) {
-                    slice = Arrays.copyOfRange(slice, 0, len);
-                }
-                uploadSlice(taskId, generator.getNextSliceId(), slice);
-            }
-
-            // 合并文件
-            merge(taskId);
-
-            // 轮询获取任务结果
-            while (true) {
-                try {
-                    System.out.println("sleep a while Zzz");
-                    Thread.sleep(20000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                ApiResultDto taskProgress = getProgress(taskId);
-                if (taskProgress.getOk() == 0) {
-                    if (taskProgress.getErr_no() != 0) {
-                        System.out.println("任务失败：" + JSON.toJSONString(taskProgress));
-                    }
-
-                    String taskStatus = taskProgress.getData();
-                    if (JSON.parseObject(taskStatus).getInteger("status") == 9) {
-                        System.out.println("任务完成！");
-                        break;
-                    }
-
-                    System.out.println("任务处理中：" + taskStatus);
-                } else {
-                    System.out.println("获取任务进度失败！");
-                }
-            }
-
-            // 获取结果
-            // System.out.println("\r\n\r\n转写结果: " + getResult(taskId));
-            return getResult(taskId);
-        } catch (SignatureException | IOException e) {
-            e.printStackTrace();
-            return "出错：" + e.getMessage();
-        }
-    }
-
-//    public static void main(String[] args) {
-//        File audio = new File("./resource/audio/lfasr.wav");
-//        try (FileInputStream fis = new FileInputStream(audio)) {
-//            // 预处理
-//            String taskId = prepare(audio);
-//
-//            // 分片上传文件
-//            int len = 0;
-//            byte[] slice = new byte[SLICE_SICE];
-//            SliceIdGenerator generator = new SliceIdGenerator();
-//            while ((len =fis.read(slice)) > 0) {
-//                // 上传分片
-//                if (fis.available() == 0) {
-//                    slice = Arrays.copyOfRange(slice, 0, len);
-//                }
-//                uploadSlice(taskId, generator.getNextSliceId(), slice);
-//            }
-//
-//            // 合并文件
-//            merge(taskId);
-//
-//            // 轮询获取任务结果
-//            while (true) {
-//                try {
-//                    System.out.println("sleep a while Zzz" );
-//                    Thread.sleep(20000);
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//                ApiResultDto taskProgress = getProgress(taskId);
-//                if (taskProgress.getOk() == 0) {
-//                    if (taskProgress.getErr_no() != 0) {
-//                        System.out.println("任务失败：" + JSON.toJSONString(taskProgress));
-//                    }
-//
-//                    String taskStatus = taskProgress.getData();
-//                    if (JSON.parseObject(taskStatus).getInteger("status") == 9) {
-//                        System.out.println("任务完成！");
-//                        break;
-//                    }
-//
-//                    System.out.println("任务处理中：" + taskStatus);
-//                } else {
-//                    System.out.println("获取任务进度失败！");
-//                }
-//            }
-//            // 获取结果
-//            System.out.println("\r\n\r\n转写结果: " + getResult(taskId));
-//        } catch (SignatureException e) {
+//    static {
+//        try {
+//            AUDIO_FILE_PATH = SparkClient.class.getResource("/").toURI().getPath() + "/audio/合成音频.wav";
+//        } catch (URISyntaxException e) {
 //            e.printStackTrace();
-//        } catch (FileNotFoundException e1) {
-//            e1.printStackTrace();
-//        } catch (IOException e1) {
-//            e1.printStackTrace();
 //        }
 //    }
 
-    /**
-     * 获取每个接口都必须的鉴权参数
-     *
-     * @return
-     * @throws SignatureException
-     */
-    public static Map<String, String> getBaseAuthParam(String taskId) throws SignatureException {
-        Map<String, String> baseParam = new HashMap<String, String>();
-        String ts = String.valueOf(System.currentTimeMillis() / 1000L);
-        baseParam.put("app_id", APPID);
-        baseParam.put("ts", ts);
-        baseParam.put("signa", EncryptUtil.HmacSHA1Encrypt(EncryptUtil.MD5(APPID + ts), SECRET_KEY));
-        if (taskId != null) {
-            baseParam.put("task_id", taskId);
-        }
 
-        return baseParam;
+    public static String transcribe(File audio) throws IOException, SignatureException, InterruptedException {
+        String result = upload(audio);
+        String jsonStr = StringEscapeUtils.unescapeJavaScript(result);
+        String orderId = String.valueOf(JSONUtil.getByPath(JSONUtil.parse(jsonStr), "content.orderId"));
+        String fullResult = getResult(orderId);
+        
+        // 解析JSON结果，提取转写文本
+        try {
+            System.out.println("原始转写结果: " + fullResult);
+            
+            // 尝试多种JSON结构解析
+            String transcribedText = parseTranscriptionResult(fullResult);
+            if (transcribedText != null && !transcribedText.trim().isEmpty()) {
+                System.out.println("成功提取转写文本: " + transcribedText);
+                return transcribedText;
+            } else {
+                throw new RuntimeException("转写结果为空或格式异常: " + fullResult);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("解析转写结果失败: " + e.getMessage() + ", 原始结果: " + fullResult);
+        }
+    }
+
+    private static String upload(File audio) throws SignatureException, FileNotFoundException {
+        HashMap<String, Object> map = new HashMap<>(16);
+        String fileName = audio.getName();
+        long fileSize = audio.length();
+        map.put("appId", appid);
+        map.put("fileSize", fileSize);
+        map.put("fileName", fileName);
+        map.put("duration", "200");
+        LfasrSignature lfasrSignature = new LfasrSignature(appid, keySecret);
+        map.put("signa", lfasrSignature.getSigna());
+        map.put("ts", lfasrSignature.getTs());
+
+        String paramString = HttpUtil.parseMapToPathParam(map);
+        System.out.println("upload paramString:" + paramString);
+
+        String url = HOST + "/v2/api/upload" + "?" + paramString;
+        System.out.println("upload_url:" + url);
+        String response = HttpUtil.iflyrecUpload(url, new FileInputStream(audio));
+
+        System.out.println("upload response:" + response);
+        return response;
+    }
+
+    private static String getResult(String orderId) throws SignatureException, InterruptedException, IOException {
+        HashMap<String, Object> map = new HashMap<>(16);
+        map.put("orderId", orderId);
+        LfasrSignature lfasrSignature = new LfasrSignature(appid, keySecret);
+        map.put("signa", lfasrSignature.getSigna());
+        map.put("ts", lfasrSignature.getTs());
+        map.put("appId", appid);
+        map.put("resultType", "transfer,predict");
+        String paramString = HttpUtil.parseMapToPathParam(map);
+        String url = HOST + "/v2/api/getResult" + "?" + paramString;
+        System.out.println("\nget_result_url:" + url);
+        while (true) {
+            String response = HttpUtil.iflyrecGet(url);
+            JsonParse jsonParse = gson.fromJson(response, JsonParse.class);
+            if (jsonParse.content.orderInfo.status == 4 || jsonParse.content.orderInfo.status == -1) {
+                System.out.println("订单完成:" + response);
+                // write(response); // 注释掉文件写入，避免路径问题
+                return response;
+            } else {
+                System.out.println("进行中...，状态为:" + jsonParse.content.orderInfo.status);
+                //建议使用回调的方式查询结果，查询接口有请求频率限制
+                Thread.sleep(7000);
+            }
+        }
     }
 
     /**
-     * 预处理
-     *
-     * @param audio     需要转写的音频
-     * @return
-     * @throws SignatureException
+     * 灵活解析转写结果，支持讯飞API的多层嵌套JSON结构
      */
-    public static String prepare(File audio) throws SignatureException {
-        Map<String, String> prepareParam = getBaseAuthParam(null);
-        long fileLenth = audio.length();
-
-        prepareParam.put("file_len", fileLenth + "");
-        prepareParam.put("file_name", audio.getName());
-        prepareParam.put("slice_num", (fileLenth/SLICE_SICE) + (fileLenth % SLICE_SICE == 0 ? 0 : 1) + "");
-
-        /********************TODO 可配置参数********************/
-        // 转写类型
-//        prepareParam.put("lfasr_type", "0");
-        // 开启分词
-//        prepareParam.put("has_participle", "true");
-        // 说话人分离
-//        prepareParam.put("has_seperate", "true");
-        // 设置多候选词个数
-//        prepareParam.put("max_alternatives", "2");
-        /****************************************************/
-
-        String response = HttpUtil.post(LFASR_HOST + PREPARE, prepareParam);
-        if (response == null) {
-            throw new RuntimeException("预处理接口请求失败！");
+    private static String parseTranscriptionResult(String jsonResult) {
+        try {
+            // 首先解析顶层JSON
+            JsonParse jsonParse = gson.fromJson(jsonResult, JsonParse.class);
+            if (jsonParse != null && jsonParse.content != null && 
+                jsonParse.content.orderResult != null) {
+                
+                // orderResult是一个JSON字符串，需要再次解析
+                String orderResultStr = jsonParse.content.orderResult;
+                System.out.println("解析orderResult字符串: " + orderResultStr.substring(0, Math.min(200, orderResultStr.length())) + "...");
+                
+                // 解析orderResult JSON字符串
+                @SuppressWarnings("unchecked")
+                HashMap<String, Object> orderResultMap = gson.fromJson(orderResultStr, HashMap.class);
+                if (orderResultMap != null) {
+                    
+                    StringBuilder transcribedText = new StringBuilder();
+                    
+                    // 尝试解析lattice数组
+                    if (orderResultMap.containsKey("lattice")) {
+                        Object latticeObj = orderResultMap.get("lattice");
+                        if (latticeObj instanceof java.util.List) {
+                            @SuppressWarnings("unchecked")
+                            java.util.List<Object> lattice = (java.util.List<Object>) latticeObj;
+                            
+                            System.out.println("解析lattice数组，包含 " + lattice.size() + " 个元素");
+                            
+                            // 遍历lattice数组，提取每个json_1best中的转写文本
+                            for (Object latticeItem : lattice) {
+                                if (latticeItem instanceof HashMap) {
+                                    @SuppressWarnings("unchecked")
+                                    HashMap<String, Object> item = (HashMap<String, Object>) latticeItem;
+                                    
+                                    // 检查json_1best字段，可能是字符串或对象
+                                    Object json1bestObj = item.get("json_1best");
+                                    if (json1bestObj != null) {
+                                        String json1bestStr;
+                                        
+                                        if (json1bestObj instanceof String) {
+                                            // 如果是字符串，直接使用
+                                            json1bestStr = (String) json1bestObj;
+                                        } else {
+                                            // 如果是对象，转换为JSON字符串
+                                            json1bestStr = gson.toJson(json1bestObj);
+                                        }
+                                        
+                                        System.out.println("解析json_1best: " + json1bestStr.substring(0, Math.min(100, json1bestStr.length())) + "...");
+                                        
+                                        // 解析json_1best字符串
+                                        try {
+                                            @SuppressWarnings("unchecked")
+                                            HashMap<String, Object> json1bestMap = gson.fromJson(json1bestStr, HashMap.class);
+                                            
+                                            if (json1bestMap != null && json1bestMap.containsKey("st")) {
+                                                Object stObj = json1bestMap.get("st");
+                                                if (stObj instanceof HashMap) {
+                                                    @SuppressWarnings("unchecked")
+                                                    HashMap<String, Object> st = (HashMap<String, Object>) stObj;
+                                                    
+                                                    if (st.containsKey("rt")) {
+                                                        Object rtObj = st.get("rt");
+                                                        if (rtObj instanceof java.util.List) {
+                                                            @SuppressWarnings("unchecked")
+                                                            java.util.List<Object> rt = (java.util.List<Object>) rtObj;
+                                                            
+                                                            System.out.println("找到rt数组，包含 " + rt.size() + " 个元素");
+                                                            
+                                                            // 提取每个rt中的词
+                                                            for (Object rtItem : rt) {
+                                                                if (rtItem instanceof HashMap) {
+                                                                    @SuppressWarnings("unchecked")
+                                                                    HashMap<String, Object> rtMap = (HashMap<String, Object>) rtItem;
+                                                                    
+                                                                    if (rtMap.containsKey("ws")) {
+                                                                        Object wsObj = rtMap.get("ws");
+                                                                        if (wsObj instanceof java.util.List) {
+                                                                            @SuppressWarnings("unchecked")
+                                                                            java.util.List<Object> ws = (java.util.List<Object>) wsObj;
+                                                                            
+                                                                            System.out.println("找到ws数组，包含 " + ws.size() + " 个元素");
+                                                                            
+                                                                            for (Object wsItem : ws) {
+                                                                                if (wsItem instanceof HashMap) {
+                                                                                    @SuppressWarnings("unchecked")
+                                                                                    HashMap<String, Object> wsMap = (HashMap<String, Object>) wsItem;
+                                                                                    
+                                                                                    if (wsMap.containsKey("cw")) {
+                                                                                        Object cwObj = wsMap.get("cw");
+                                                                                        if (cwObj instanceof java.util.List) {
+                                                                                            @SuppressWarnings("unchecked")
+                                                                                            java.util.List<Object> cw = (java.util.List<Object>) cwObj;
+                                                                                            
+                                                                                            System.out.println("找到cw数组，包含 " + cw.size() + " 个元素");
+                                                                                            
+                                                                                            for (Object cwItem : cw) {
+                                                                                                if (cwItem instanceof HashMap) {
+                                                                                                    @SuppressWarnings("unchecked")
+                                                                                                    HashMap<String, Object> cwMap = (HashMap<String, Object>) cwItem;
+                                                                                                    
+                                                                                                    if (cwMap.containsKey("w")) {
+                                                                                                        String word = (String) cwMap.get("w");
+                                                                                                        // 过滤掉空字符串
+                                                                                                        if (word != null && !word.trim().isEmpty()) {
+                                                                                                            System.out.println("提取到词汇: " + word);
+                                                                                                            transcribedText.append(word);
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) {
+                                            System.out.println("解析json_1best失败: " + e.getMessage());
+                                            // 如果解析失败，尝试直接提取字符串中的词汇
+                                            String extractedWords = extractWordsFromString(json1bestStr);
+                                            if (extractedWords != null && !extractedWords.trim().isEmpty()) {
+                                                System.out.println("字符串提取成功: " + extractedWords);
+                                                transcribedText.append(extractedWords);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 如果lattice没有结果，尝试解析lattice2数组
+                    if (transcribedText.length() == 0 && orderResultMap.containsKey("lattice2")) {
+                        Object lattice2Obj = orderResultMap.get("lattice2");
+                        if (lattice2Obj instanceof java.util.List) {
+                            @SuppressWarnings("unchecked")
+                            java.util.List<Object> lattice2 = (java.util.List<Object>) lattice2Obj;
+                            
+                            System.out.println("解析lattice2数组，包含 " + lattice2.size() + " 个元素");
+                            
+                            // 遍历lattice2数组，提取每个json_1best中的转写文本
+                            for (Object latticeItem : lattice2) {
+                                if (latticeItem instanceof HashMap) {
+                                    @SuppressWarnings("unchecked")
+                                    HashMap<String, Object> item = (HashMap<String, Object>) latticeItem;
+                                    
+                                    // 检查json_1best字段，可能是字符串或对象
+                                    Object json1bestObj = item.get("json_1best");
+                                    if (json1bestObj != null) {
+                                        String json1bestStr;
+                                        
+                                        if (json1bestObj instanceof String) {
+                                            // 如果是字符串，直接使用
+                                            json1bestStr = (String) json1bestObj;
+                                        } else {
+                                            // 如果是对象，转换为JSON字符串
+                                            json1bestStr = gson.toJson(json1bestObj);
+                                        }
+                                        
+                                        System.out.println("解析lattice2 json_1best: " + json1bestStr.substring(0, Math.min(100, json1bestStr.length())) + "...");
+                                        
+                                        // 解析json_1best字符串
+                                        try {
+                                            @SuppressWarnings("unchecked")
+                                            HashMap<String, Object> json1bestMap = gson.fromJson(json1bestStr, HashMap.class);
+                                            
+                                            if (json1bestMap != null && json1bestMap.containsKey("st")) {
+                                                Object stObj = json1bestMap.get("st");
+                                                if (stObj instanceof HashMap) {
+                                                    @SuppressWarnings("unchecked")
+                                                    HashMap<String, Object> st = (HashMap<String, Object>) stObj;
+                                                    
+                                                    if (st.containsKey("rt")) {
+                                                        Object rtObj = st.get("rt");
+                                                        if (rtObj instanceof java.util.List) {
+                                                            @SuppressWarnings("unchecked")
+                                                            java.util.List<Object> rt = (java.util.List<Object>) rtObj;
+                                                            
+                                                            // 提取每个rt中的词
+                                                            for (Object rtItem : rt) {
+                                                                if (rtItem instanceof HashMap) {
+                                                                    @SuppressWarnings("unchecked")
+                                                                    HashMap<String, Object> rtMap = (HashMap<String, Object>) rtItem;
+                                                                    
+                                                                    if (rtMap.containsKey("ws")) {
+                                                                        Object wsObj = rtMap.get("ws");
+                                                                        if (wsObj instanceof java.util.List) {
+                                                                            @SuppressWarnings("unchecked")
+                                                                            java.util.List<Object> ws = (java.util.List<Object>) wsObj;
+                                                                            
+                                                                            for (Object wsItem : ws) {
+                                                                                if (wsItem instanceof HashMap) {
+                                                                                    @SuppressWarnings("unchecked")
+                                                                                    HashMap<String, Object> wsMap = (HashMap<String, Object>) wsItem;
+                                                                                    
+                                                                                    if (wsMap.containsKey("cw")) {
+                                                                                        Object cwObj = wsMap.get("cw");
+                                                                                        if (cwObj instanceof java.util.List) {
+                                                                                            @SuppressWarnings("unchecked")
+                                                                                            java.util.List<Object> cw = (java.util.List<Object>) cwObj;
+                                                                                            
+                                                                                            for (Object cwItem : cw) {
+                                                                                                if (cwItem instanceof HashMap) {
+                                                                                                    @SuppressWarnings("unchecked")
+                                                                                                    HashMap<String, Object> cwMap = (HashMap<String, Object>) cwItem;
+                                                                                                    
+                                                                                                    if (cwMap.containsKey("w")) {
+                                                                                                        String word = (String) cwMap.get("w");
+                                                                                                        // 过滤掉空字符串
+                                                                                                        if (word != null && !word.trim().isEmpty()) {
+                                                                                                            transcribedText.append(word);
+                                                                                                        }
+                                                                                                    }
+                                                                                                }
+                                                                                            }
+                                                                                        }
+                                                                                    }
+                                                                                }
+                                                                            }
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } catch (Exception e) {
+                                            System.out.println("解析lattice2 json_1best失败: " + e.getMessage());
+                                            // 如果解析失败，尝试直接提取字符串中的词汇
+                                            String extractedWords = extractWordsFromString(json1bestStr);
+                                            if (extractedWords != null && !extractedWords.trim().isEmpty()) {
+                                                transcribedText.append(extractedWords);
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    String result = transcribedText.toString();
+                    if (!result.trim().isEmpty()) {
+                        System.out.println("成功提取转写文本: " + result);
+                        return result;
+                    }
+                }
+            }
+            
+            // 如果上述方法失败，尝试备用方法
+            System.out.println("主要解析方法失败，尝试备用方法...");
+            return parseTranscriptionResultBackup(jsonResult);
+            
+        } catch (Exception e) {
+            System.out.println("JSON解析异常: " + e.getMessage());
+            return parseTranscriptionResultBackup(jsonResult);
         }
-        ApiResultDto resultDto = JSON.parseObject(response, ApiResultDto.class);
-        String taskId = resultDto.getData();
-        if (resultDto.getOk() != 0 || taskId == null) {
-            throw new RuntimeException("预处理失败！" + response);
+    }
+    
+    /**
+     * 从字符串中直接提取词汇
+     */
+    private static String extractWordsFromString(String jsonStr) {
+        try {
+            // 使用正则表达式提取"w"字段的值
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"w\":\"([^\"]+)\"");
+            java.util.regex.Matcher matcher = pattern.matcher(jsonStr);
+            
+            StringBuilder result = new StringBuilder();
+            while (matcher.find()) {
+                String word = matcher.group(1);
+                if (word != null && !word.trim().isEmpty()) {
+                    result.append(word);
+                }
+            }
+            
+            return result.toString();
+        } catch (Exception e) {
+            System.out.println("字符串词汇提取失败: " + e.getMessage());
+            return null;
         }
+    }
+    
+    /**
+     * 备用解析方法，使用正则表达式提取文本
+     */
+    private static String parseTranscriptionResultBackup(String jsonResult) {
+        try {
+            // 首先尝试从orderResult字段中提取
+            java.util.regex.Pattern orderResultPattern = java.util.regex.Pattern.compile("\"orderResult\":\"([^\"]+)\"");
+            java.util.regex.Matcher orderResultMatcher = orderResultPattern.matcher(jsonResult);
+            
+            if (orderResultMatcher.find()) {
+                String orderResultStr = orderResultMatcher.group(1);
+                System.out.println("从orderResult提取字符串: " + orderResultStr.substring(0, Math.min(200, orderResultStr.length())) + "...");
+                
+                // 对orderResult字符串进行转义处理
+                String unescapedStr = orderResultStr.replace("\\\\", "\\").replace("\\\"", "\"");
+                System.out.println("转义后的字符串: " + unescapedStr.substring(0, Math.min(200, unescapedStr.length())) + "...");
+                
+                // 使用正则表达式提取"w"字段的值
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"w\":\"([^\"]+)\"");
+                java.util.regex.Matcher matcher = pattern.matcher(unescapedStr);
+                
+                StringBuilder result = new StringBuilder();
+                while (matcher.find()) {
+                    String word = matcher.group(1);
+                    if (word != null && !word.trim().isEmpty()) {
+                        result.append(word);
+                    }
+                }
+                
+                String transcribedText = result.toString();
+                if (!transcribedText.trim().isEmpty()) {
+                    System.out.println("备用方法成功提取转写文本: " + transcribedText);
+                    return transcribedText;
+                }
+            }
+            
+            // 如果上面的方法失败，尝试直接从整个JSON中提取
+            System.out.println("尝试直接从整个JSON中提取...");
+            
+            // 使用更宽松的正则表达式，处理转义字符
+            java.util.regex.Pattern globalPattern = java.util.regex.Pattern.compile("\"w\":\"([^\"]*)\"");
+            java.util.regex.Matcher globalMatcher = globalPattern.matcher(jsonResult);
+            
+            StringBuilder globalResult = new StringBuilder();
+            while (globalMatcher.find()) {
+                String word = globalMatcher.group(1);
+                if (word != null && !word.trim().isEmpty()) {
+                    globalResult.append(word);
+                }
+            }
+            
+            String globalTranscribedText = globalResult.toString();
+            if (!globalTranscribedText.trim().isEmpty()) {
+                System.out.println("全局提取方法成功提取转写文本: " + globalTranscribedText);
+                return globalTranscribedText;
+            }
+            
+            // 最后尝试：直接从原始JSON中提取，不处理转义
+            System.out.println("尝试最终提取方法...");
+            java.util.regex.Pattern finalPattern = java.util.regex.Pattern.compile("\\\\\"w\\\\\":\\\\\"([^\\\\\"]*)\\\\\"");
+            java.util.regex.Matcher finalMatcher = finalPattern.matcher(jsonResult);
+            
+            StringBuilder finalResult = new StringBuilder();
+            while (finalMatcher.find()) {
+                String word = finalMatcher.group(1);
+                if (word != null && !word.trim().isEmpty()) {
+                    finalResult.append(word);
+                }
+            }
+            
+            String finalTranscribedText = finalResult.toString();
+            if (!finalTranscribedText.trim().isEmpty()) {
+                System.out.println("最终提取方法成功提取转写文本: " + finalTranscribedText);
+                return finalTranscribedText;
+            }
+            
+            System.out.println("所有解析方法都失败，原始内容: " + jsonResult);
+            return null;
+            
+        } catch (Exception e) {
+            System.out.println("备用解析方法异常: " + e.getMessage());
+            return null;
+        }
+    }
 
-        System.out.println("预处理成功, taskid：" + taskId);
-        return taskId;
+    // 临时添加一个空的write方法，避免调用错误
+    public static void write(String resp) throws IOException {
+        System.out.println("跳过文件写入，响应内容: " + resp.substring(0, Math.min(100, resp.length())) + "...");
     }
 
     /**
-     * 分片上传
-     *
-     * @param taskId        任务id
-     * @param slice         分片的byte数组
-     * @throws SignatureException
+     * 根据路径获取Map中的值
      */
-    public static void uploadSlice(String taskId, String sliceId, byte[] slice) throws SignatureException {
-        Map<String, String> uploadParam = getBaseAuthParam(taskId);
-        uploadParam.put("slice_id", sliceId);
-
-        String response = HttpUtil.postMulti(LFASR_HOST + UPLOAD, uploadParam, slice);
-        if (response == null) {
-            throw new RuntimeException("分片上传接口请求失败！");
+    private static String getValueByPath(HashMap<String, Object> map, String path) {
+        try {
+            String[] keys = path.split("\\.");
+            Object current = map;
+            
+            for (String key : keys) {
+                if (current instanceof HashMap) {
+                    @SuppressWarnings("unchecked")
+                    HashMap<String, Object> currentMap = (HashMap<String, Object>) current;
+                    current = currentMap.get(key);
+                } else {
+                    return null;
+                }
+            }
+            
+            return current != null ? current.toString() : null;
+        } catch (Exception e) {
+            return null;
         }
-        if (JSON.parseObject(response).getInteger("ok") == 0) {
-            System.out.println("分片上传成功, sliceId: " + sliceId + ", sliceLen: " + slice.length);
-            return;
-        }
-
-        System.out.println("params: " + JSON.toJSONString(uploadParam));
-        throw new RuntimeException("分片上传失败！" + response + "|" + taskId);
     }
 
-    /**
-     * 文件合并
-     *
-     * @param taskId        任务id
-     * @throws SignatureException
-     */
-    public static void merge(String taskId) throws SignatureException {
-        String response = HttpUtil.post(LFASR_HOST + MERGE, getBaseAuthParam(taskId));
-        if (response == null) {
-            throw new RuntimeException("文件合并接口请求失败！");
-        }
-        if (JSON.parseObject(response).getInteger("ok") == 0) {
-            System.out.println("文件合并成功, taskId: " + taskId);
-            return;
-        }
-
-        throw new RuntimeException("文件合并失败！" + response);
+    static class JsonParse {
+        Content content;
     }
 
-    /**
-     * 获取任务进度
-     *
-     * @param taskId        任务id
-     * @throws SignatureException
-     */
-    public static ApiResultDto getProgress(String taskId) throws SignatureException {
-        String response = HttpUtil.post(LFASR_HOST + GET_PROGRESS, getBaseAuthParam(taskId));
-        if (response == null) {
-            throw new RuntimeException("获取任务进度接口请求失败！");
-        }
-
-        return JSON.parseObject(response, ApiResultDto.class);
+    static class Content {
+        OrderInfo orderInfo;
+        String orderResult;  // 添加orderResult字段
     }
 
-    /**
-     * 获取转写结果
-     *
-     * @param taskId
-     * @return
-     * @throws SignatureException
-     */
-    public static String getResult(String taskId) throws SignatureException {
-        String responseStr = HttpUtil.post(LFASR_HOST + GET_RESULT, getBaseAuthParam(taskId));
-        if (responseStr == null) {
-            throw new RuntimeException("获取结果接口请求失败！");
-        }
-        ApiResultDto response = JSON.parseObject(responseStr, ApiResultDto.class);
-        if (response.getOk() != 0) {
-            throw new RuntimeException("获取结果失败！" + responseStr);
-        }
-
-        return response.getData();
+    static class OrderInfo {
+        Integer status;
+        String result;
     }
 }

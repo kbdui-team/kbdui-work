@@ -34,7 +34,7 @@ public class ChatController {
     }
 
     /**
-     * 生成问题
+     * 生成问题（从文件）
      */
     @PostMapping("/generate-questions")
     public ApiResponse<List<Question>> generateQuestions(
@@ -50,6 +50,34 @@ public class ChatController {
             List<Question> questions =
                     deepseekClient.generateQuestionsFromFile(apiKey, file, questionCount, useSiliconFlow);
 
+            return ApiResponse.success(questions);
+        } catch (Exception e) {
+            return ApiResponse.error(500, "题目生成失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 生成问题（从文本内容）
+     */
+    @PostMapping("/generate-questions-from-text")
+    public ApiResponse<List<Question>> generateQuestionsFromText(
+            @RequestParam("content") String content,
+            @RequestParam(value = "count", defaultValue = "5") int questionCount,
+            @RequestParam(value = "model", defaultValue = "v3") String model) {
+
+        try {
+            // 确定使用哪个平台
+            boolean useSiliconFlow = "R1".equalsIgnoreCase(model);
+            
+            // 构建生成问题的Prompt
+            String prompt = buildQuestionPromptFromText(content, questionCount);
+            
+            // 调用DeepseekClient生成题目
+            String jsonResponse = deepseekClient.getResponse(apiKey, prompt, useSiliconFlow);
+            
+            // 解析返回的题目
+            List<Question> questions = deepseekClient.parseQuestionResponse(jsonResponse);
+            
             return ApiResponse.success(questions);
         } catch (Exception e) {
             return ApiResponse.error(500, "题目生成失败: " + e.getMessage());
@@ -95,6 +123,10 @@ public class ChatController {
             return ApiResponse.success(questions);
             
         } catch (Exception e) {
+//            // 清理临时文件
+//            if (tempFile != null && tempFile.exists()) {
+//                tempFile.delete();
+//            }
             return ApiResponse.error(500, "音频转写并生成问题失败: " + e.getMessage());
         }
     }
@@ -119,7 +151,8 @@ public class ChatController {
             "1. 题目要基于文本内容，不能脱离文本\n" +
             "2. 每道题有4个选项，其中只有1个正确答案\n" +
             "3. 题目难度适中，涵盖文本的主要知识点\n" +
-            "4. 返回JSON格式，包含questions数组\n\n" +
+            "4. 答案必须根据题目内容确定，不能固定为某个选项\n" +
+            "5. 返回JSON格式，包含questions数组\n\n" +
             "文本内容：\n%s\n\n" +
             "请返回如下JSON格式：\n" +
             "{\n" +
@@ -127,7 +160,7 @@ public class ChatController {
             "    {\n" +
             "      \"question\": \"题目内容\",\n" +
             "      \"options\": [\"选项A\", \"选项B\", \"选项C\", \"选项D\"],\n" +
-            "      \"correctAnswer\": 0\n" +
+            "      \"answer\": \"正确答案对应的选项字母\"\n" +
             "    }\n" +
             "  ]\n" +
             "}", 

@@ -11,6 +11,7 @@ import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.binary.Base64;
 
+// 这个是旧接口讯飞录音文件转写的文件
 public class EncryptUtil {
 
     /**
