@@ -1,4 +1,5 @@
 <template>
+  
   <div class="login-container">
     <div class="login-form-wrapper">
       <div class="login-header">
@@ -83,38 +84,16 @@
       <div class="login-footer">
         <p>还没有账户？<el-link type="primary" :underline="false" @click="goToRegister">立即注册</el-link></p>
       </div>
-      
-      <!-- 提示信息 -->
-      <div class="login-hint">
-        <el-alert
-          :title="`${roleNames[selectedRole]}测试账号`"
-          type="info"
-          :closable="false"
-          show-icon
-        >
-          <template #default>
-            <div v-if="selectedRole === 'teacher'">
-              <p>工号：teacher001</p>
-              <p>密码：teacher123</p>
-              <p class="role-desc">教师可管理演讲和查看统计</p>
-            </div>
-            <div v-else>
-              <p>学号：202100001</p>
-              <p>密码：student123</p>
-              <p class="role-desc">学生可参与答题和查看成绩</p>
-            </div>
-          </template>
-        </el-alert>
-      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, inject } from 'vue'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Avatar } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 defineOptions({ name: 'LoginPage' })
 
@@ -122,23 +101,12 @@ const router = useRouter()
 const loginFormRef = ref()
 const loading = ref(false)
 const selectedRole = ref('teacher') // 默认选择教师
+const baseurl = inject('baseurl')
 
 // 角色名称映射
 const roleNames: Record<string, string> = {
   teacher: '教师',
   student: '学生'
-}
-
-// 预设的账号密码（按角色分类）
-const VALID_CREDENTIALS: Record<string, { username: string; password: string }> = {
-  teacher: {
-    username: 'teacher001',
-    password: 'teacher123'
-  },
-  student: {
-    username: '202100001',
-    password: 'student123'
-  }
 }
 
 // 路由映射 - 修正为与路由表一致的路径
@@ -153,16 +121,10 @@ const loginForm = reactive({
   remember: false
 })
 
-// 动态验证规则
+// 动态验证规则（教师工号不做长度限制）
 const loginRules = computed(() => ({
   username: [
-    { required: true, message: selectedRole.value === 'teacher' ? '请输入教师工号' : '请输入学号', trigger: 'blur' },
-    { 
-      min: 3, 
-      max: 20, 
-      message: selectedRole.value === 'teacher' ? '工号长度应为3-20个字符' : '学号长度应为3-20个字符', 
-      trigger: 'blur' 
-    }
+    { required: true, message: selectedRole.value === 'teacher' ? '请输入教师工号' : '请输入学号', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -186,81 +148,55 @@ const selectRole = (role: string) => {
   checkRememberedCredentials()
 }
 
-// 验证账号密码
-const validateCredentials = (username: string, password: string, role: string) => {
-  const validCred = VALID_CREDENTIALS[role]
-  return username === validCred.username && password === validCred.password
-}
-
 const handleLogin = async () => {
-  if (!loginFormRef.value) return
-  
-  await loginFormRef.value.validate((valid: boolean) => {
+  if (!loginFormRef.value) return;
+  await loginFormRef.value.validate(async (valid: unknown) => {
     if (valid) {
-      loading.value = true
-      
-      // 模拟登录请求延迟
-      setTimeout(() => {
-        loading.value = false
-        
-        // 验证账号密码
-        if (validateCredentials(loginForm.username, loginForm.password, selectedRole.value)) {
-          console.log('登录成功，用户信息:', {
-            username: loginForm.username,
-            role: selectedRole.value,
-            roleName: roleNames[selectedRole.value],
-            remember: loginForm.remember,
-            loginTime: new Date().toLocaleString()
-          })
-          
-          // 如果勾选了记住密码，按角色存储到localStorage
-          const storageKey = `remembered_${selectedRole.value}`
-          if (loginForm.remember) {
-            localStorage.setItem(storageKey, JSON.stringify({
-              username: loginForm.username,
-              role: selectedRole.value
-            }))
-          } else {
-            localStorage.removeItem(storageKey)
-          }
-          
-          // 存储登录状态和用户信息
-          localStorage.setItem('isLoggedIn', 'true')
-          localStorage.setItem('currentUser', JSON.stringify({
-            username: loginForm.username,
-            role: selectedRole.value,
-            roleName: roleNames[selectedRole.value]
-          }))
-          
-          ElMessage.success(`${roleNames[selectedRole.value]}登录成功！欢迎回来`)
-          
-          // 根据角色跳转到不同的页面
-          setTimeout(() => {
-            const targetRoute = ROLE_ROUTES[selectedRole.value]
-            console.log('准备跳转到:', targetRoute) // 添加调试信息
-            router.push(targetRoute)
-          }, 1000)
-          
-        } else {
-          // 账号或密码错误
-          ElMessage.error(`${roleNames[selectedRole.value]}账号或密码错误，请重新输入`)
-          
-          // 清空密码输入框
-          loginForm.password = ''
-          
-          // 聚焦到用户名输入框
-          setTimeout(() => {
-            const usernameInput = document.querySelector('input[placeholder*="请输入"]')
-            if (usernameInput) {
-              (usernameInput as HTMLElement).focus()
-            }
-          }, 100)
+      // 只允许数字ID
+      if (!/^\d+$/.test(loginForm.username)) {
+        ElMessage.error('请输入正确的用户ID（数字）');
+        return;
+      }
+      loading.value = true;
+      try {
+        // 用ID查用户
+        const response = await axios.get(`${baseurl}/user/get/${loginForm.username}`);
+        loading.value = false;
+        const user = response.data;
+        if (!user) {
+          ElMessage.error('用户不存在或密码错误');
+          loginForm.password = '';
+          return;
         }
-      }, 1500)
+        // 角色校验
+        if (selectedRole.value === 'student' && user.userType !== 'student') {
+          ElMessage.error('该账号不是学生账号，无法以学生身份登录');
+          return;
+        }
+        if (selectedRole.value === 'teacher' && user.userType !== 'teacher') {
+          ElMessage.error('该账号不是教师账号，无法以教师身份登录');
+          return;
+        }
+        if (user.password === loginForm.password) {
+          localStorage.setItem('isLoggedIn', 'true');
+          localStorage.setItem('currentUser', JSON.stringify(user));
+          ElMessage.success(`${roleNames[selectedRole.value]}登录成功！欢迎回来`);
+          setTimeout(() => {
+            const targetRoute = ROLE_ROUTES[selectedRole.value];
+            router.push(targetRoute);
+          }, 1000);
+        } else {
+          ElMessage.error('用户不存在或密码错误');
+          loginForm.password = '';
+        }
+      } catch {
+        loading.value = false;
+        ElMessage.error('用户不存在或密码错误');
+      }
     } else {
-      ElMessage.error('请填写完整的登录信息')
+      ElMessage.error('请填写完整的登录信息');
     }
-  })
+  });
 }
 
 const goToRegister = () => {

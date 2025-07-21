@@ -7,6 +7,7 @@ import com.app.dto.UserDTO;
 import com.app.entity.UserDO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.CrossOrigin;
 
 import javax.annotation.Resource;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.stream.Collectors;
 
 @Service
 @Slf4j
+@CrossOrigin
 public class UserService {
     @Resource
     private UserDAO userDAO;
@@ -41,6 +43,8 @@ public class UserService {
     public boolean updateUser(UserDTO user) {
         // 将 UserDTO 转换为 UserDO 实体类
         UserDO userEntity = convertToEntity(user);
+        System.out.println("1:");
+        System.out.println(user);
         // 使用 userDAO 更新数据
         return userDAO.updateById(userEntity) > 0;
     }

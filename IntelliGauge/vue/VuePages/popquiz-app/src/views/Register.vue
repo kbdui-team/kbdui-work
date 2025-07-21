@@ -13,10 +13,38 @@
           class="register-form"
           size="large"
         >
-          <el-form-item prop="username">
+          <el-form-item prop="userName">
             <el-input
-              v-model="registerForm.username"
+              v-model="registerForm.userName"
               placeholder="请输入用户名"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><User /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="realName">
+            <el-input
+              v-model="registerForm.realName"
+              placeholder="请输入真实姓名"
+              clearable
+            >
+              <template #prefix>
+                <el-icon><User /></el-icon>
+              </template>
+            </el-input>
+          </el-form-item>
+          <el-form-item prop="userType">
+            <el-select v-model="registerForm.userType" placeholder="请选择用户类型" clearable>
+              <el-option label="普通用户" value="user" />
+              <el-option label="管理员" value="admin" />
+            </el-select>
+          </el-form-item>
+          <el-form-item prop="status">
+            <el-input
+              v-model="registerForm.status"
+              placeholder="请输入状态（可选，默认 active）"
               clearable
             >
               <template #prefix>
@@ -105,21 +133,26 @@
   </template>
   
   <script setup>
-  import { ref, reactive } from 'vue'
+  import { ref, reactive, inject } from 'vue'
   import { ElMessage } from 'element-plus'
   import { User, Lock, Message, Phone } from '@element-plus/icons-vue'
   import { useRouter } from 'vue-router'
+  import axios from 'axios'
   
   const router = useRouter()
   const registerFormRef = ref()
   const loading = ref(false)
+  const baseurl = inject('baseurl')
   
   const registerForm = reactive({
-    username: '',
+    userName: '',
+    realName: '',
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
+    userType: '',
+    status: 'active',
     agreement: false
   })
   
@@ -165,10 +198,14 @@
   }
   
   const registerRules = {
-    username: [
+    userName: [
       { required: true, message: '请输入用户名', trigger: 'blur' },
       { min: 3, max: 20, message: '用户名长度应为3-20个字符', trigger: 'blur' },
       { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
+    ],
+    realName: [
+      { required: true, message: '请输入真实姓名', trigger: 'blur' },
+      { min: 2, max: 20, message: '真实姓名长度应为2-20个字符', trigger: 'blur' }
     ],
     email: [
       { validator: validateEmail, trigger: 'blur' }
@@ -184,6 +221,12 @@
     confirmPassword: [
       { validator: validateConfirmPassword, trigger: 'blur' }
     ],
+    userType: [
+      { required: true, message: '请选择用户类型', trigger: 'change' }
+    ],
+    status: [
+      { required: false }
+    ],
     agreement: [
       { validator: validateAgreement, trigger: 'change' }
     ]
@@ -191,25 +234,34 @@
   
   const handleRegister = async () => {
     if (!registerFormRef.value) return
-    
-    await registerFormRef.value.validate((valid) => {
+
+    await registerFormRef.value.validate(async (valid) => {
       if (valid) {
         loading.value = true
-        
-        // 模拟注册请求
-        setTimeout(() => {
-          loading.value = false
-          console.log('注册数据:', {
-            username: registerForm.username,
+        try {
+          const payload = {
+            userName: registerForm.userName,
+            realName: registerForm.realName,
             email: registerForm.email,
             phone: registerForm.phone,
-            password: registerForm.password
-          })
-          ElMessage.success('注册成功！请登录您的账户')
-          
-          // 这里可以添加路由跳转到登录页面
-          // router.push('/login')
-        }, 2000)
+            password: registerForm.password,
+            userType: registerForm.userType,
+            status: registerForm.status || 'active'
+          }
+          // 使用baseurl拼接完整后端地址
+          const response = await axios.post(`${baseurl}/user/add`, payload)
+          loading.value = false
+          // 后端返回true为注册成功
+          if (response.data === true) {
+            ElMessage.success('注册成功！请登录您的账户')
+            router.push('/')
+          } else {
+            ElMessage.error('注册失败，请重试')
+          }
+        } catch (error) {
+          loading.value = false
+          ElMessage.error(error.response?.data?.message || '注册失败，请检查网络或稍后重试')
+        }
       } else {
         ElMessage.error('请完善注册信息')
       }
