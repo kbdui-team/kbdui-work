@@ -8,8 +8,11 @@ import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 public class FileParserUtil {
 
@@ -37,10 +40,26 @@ public class FileParserUtil {
                     return parseLegacyPpt(inputStream);
                 case "pptx":
                     return parsePptx(inputStream);
+                case "txt":
+                case "md":
+                case "html":
+                    return parseText(inputStream);
                 default:
                     throw new IllegalArgumentException("不支持的文件格式: " + extension);
             }
         }
+    }
+
+    // 文本文件解析
+    private static String parseText(InputStream inputStream) throws IOException {
+        StringBuilder content = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+        }
+        return content.toString();
     }
 
     private static String parsePdf(InputStream inputStream) throws IOException {

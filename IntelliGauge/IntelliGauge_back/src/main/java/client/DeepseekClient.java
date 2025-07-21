@@ -118,7 +118,7 @@ public class DeepseekClient {
     }
 
     // 解析API返回的题目数据
-    private List<Question> parseQuestionResponse(String jsonResponse) throws IOException {
+    public List<Question> parseQuestionResponse(String jsonResponse) throws IOException {
         // 解析整个API响应
         JsonNode rootNode = objectMapper.readTree(jsonResponse);
 
