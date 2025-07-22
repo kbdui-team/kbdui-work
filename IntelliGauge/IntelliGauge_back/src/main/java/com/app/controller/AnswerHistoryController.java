@@ -2,6 +2,7 @@ package com.app.controller;
 
 import com.app.dto.answer.AnswerHistoryDTO;
 import com.app.dto.answer.StudentAnswerDTO;
+import com.app.dto.answer.StudentAnswerQueryRequest;
 import com.app.service.AnswerHistoryService;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.springframework.web.bind.annotation.*;
@@ -77,12 +78,14 @@ public class AnswerHistoryController {
 
     /**
      * 查询指定学生的所有答题情况（分页）
-     */
-    @GetMapping("/student/{userId}")
-    public StudentAnswerDTO getStudentAnswers(@PathVariable Integer userId,
-                                              @RequestParam Integer pageNo,
-                                              @RequestParam Integer pageSize,
-                                              @RequestParam Integer lectureId) {
-        return answerHistoryService.getAllAnswerHistoriesForStudent(pageNo, pageSize, userId, lectureId);
+     */@PostMapping("/student/{userId}/answers/query")
+    public StudentAnswerDTO getStudentAnswers(
+            @PathVariable Integer userId,
+            @RequestBody  StudentAnswerQueryRequest request) {
+        return answerHistoryService.getAllAnswerHistoriesForStudent(
+                request.getPageNo(),
+                request.getPageSize(),
+                userId,
+                request.getLectureId());
     }
 } 
