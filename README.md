@@ -64,3 +64,41 @@ IntelliGauge/
 ├── model-worker/           # Python 多模态/LLM 服务
 ├── docs/                   # 项目文档
 └── README.md
+
+```
+
+## ✨ 部署方式 <i class="fa fa-folder"></i>
+
+1. **拉取仓库**
+
+2. **安装并运行前端**
+   
+   在 `kbdui-work/IntelliGauge/vue/VuePages/popquiz-app` 路径下，运行以下命令安装依赖：
+
+   ```bash
+   npm install
+   
+   npm run dev
+4. 导入数据库
+   `kbdui-work/sql` 中的 `intelligauge_data2.sql` 导入到本地的 MySQL 数据库表。
+
+5. 修改数据库配置
+修改 `kbdui-work/IntelliGauge/IntelliGauge_back/src/main/resources/application-local.yml` 中的 MySQL 数据库配置。
+
+6. 配置 API 密钥
+在 `kbdui-work/IntelliGauge/IntelliGauge_back/src/main/resources` 路径下新建 `application-key.ym` 文件，并添加以下内容（将xxx替换为自己的密钥，或者联系项目负责人获取)：
+
+```yaml
+# deepseek的api开放平台密钥
+deepseek:
+  api:
+    key: xxx
+
+# 使用的为讯飞开放平台星火的录音文件转写Ifasr接口,模型调用路径为https://raasr.xfyun.cn/v2/api
+iflytek:
+  api:
+    apiId: xxx
+    secret_key: xxx
+```
+6.添加maven后运行即可启动后端
+
