@@ -174,68 +174,54 @@
   
   <script lang="ts">
   import { useRouter } from 'vue-router'
+  import { inject } from 'vue';
+  import axios from 'axios';
+
+  interface LectureParticipant {
+    id: number;
+    lectureId: number;
+    userType?: string;
+    // 其他字段可根据实际DTO补充
+  }
+
+  interface Speech {
+    id: number;
+    title: string;
+    date: string;
+    participants: number;
+    quizCount?: number;
+  }
+
+  interface Quiz {
+    id: number;
+    title: string;
+    status: string;
+    participants: number;
+    accuracy: number;
+    participationRate: number;
+  }
+
   export default {
     name: 'SpeechQuizSystem',
     data() {
       return {
         activeTab: 'teacher',
-        selectedSpeech: '',
-        selectedQuiz: null,
-        
-        // 演讲数据
-        speeches: [
-          {
-            id: 1,
-            title: '人工智能发展趋势',
-            date: '2025-07-14',
-            participants: 45,
-            quizCount: 5
-          },
-          {
-            id: 2,
-            title: '大数据应用实践',
-            date: '2025-07-13',
-            participants: 38,
-            quizCount: 4
-          }
-        ],
-        
-        currentSpeech: null,
-        totalParticipants: 45,
+        selectedSpeech: 0,
+        selectedQuiz: null as number | null,
+        speeches: [] as Speech[],
+        currentSpeech: null as Speech | null,
+        totalParticipants: 0,
         averageAccuracy: 87,
         completedQuizzes: 3,
-        
-        // 测试数据
-        quizzes: [
-          {
-            id: 1,
-            title: '第一题：什么是机器学习？',
-            status: '已结束',
-            participants: 42,
-            accuracy: 89,
-            participationRate: 93
-          },
-          {
-            id: 2,
-            title: '第二题：深度学习的应用领域',
-            status: '进行中',
-            participants: 35,
-            accuracy: 76,
-            participationRate: 78
-          },
-          {
-            id: 3,
-            title: '第三题：AI伦理问题',
-            status: '未开始',
-            participants: 0,
-            accuracy: 0,
-            participationRate: 0
-          }
-        ],
-        
-        selectedQuizData: null,
-        
-        // 学生个人信息
+        quizzes: [] as Quiz[],
+        selectedQuizData: null as null | {
+          id: number;
+          title: string;
+          answered: number;
+          correct: number;
+          unanswered: number;
+          options: { key: string; text: string; percentage: number; isCorrect: boolean; }[];
+        },
         studentInfo: {
           name: '张三',
           studentId: '202100001',
@@ -245,45 +231,8 @@
           completed: 2,
           id: 1
         },
-        
-        // 学生答题记录
-        studentAnswers: [
-          {
-            quizTitle: '什么是机器学习？',
-            myAnswer: 'A',
-            correctAnswer: 'A',
-            isCorrect: true,
-            answerTime: '14:30:25'
-          },
-          {
-            quizTitle: '深度学习的应用领域',
-            myAnswer: 'B',
-            correctAnswer: 'C',
-            isCorrect: false,
-            answerTime: '14:35:12'
-          }
-        ],
-        
-        // 排名数据
-        rankings: [
-          { id: 2, name: '李四', accuracy: 95 },
-          { id: 3, name: '王五', accuracy: 92 },
-          { id: 1, name: '张三', accuracy: 85 },
-          { id: 2, name: '李四', accuracy: 95 },
-          { id: 3, name: '王五', accuracy: 92 },
-          { id: 1, name: '张三', accuracy: 85 },
-          { id: 2, name: '李四', accuracy: 95 },
-          { id: 3, name: '王五', accuracy: 92 },
-          { id: 1, name: '张三', accuracy: 85 },
-          { id: 2, name: '李四', accuracy: 95 },
-          { id: 3, name: '王五', accuracy: 92 },
-          { id: 1, name: '张三', accuracy: 85 },
-          { id: 2, name: '李四', accuracy: 95 },
-          { id: 3, name: '王五', accuracy: 92 },
-          { id: 1, name: '张三', accuracy: 85 },
-          
-          { id: 4, name: '赵六', accuracy: 78 }
-        ]
+        studentAnswers: [] as { quizTitle: string; myAnswer: string; correctAnswer: string; isCorrect: boolean; answerTime: string; }[],
+        rankings: [] as { id: number; name: string; accuracy: number; }[]
       }
     },
     
@@ -296,15 +245,44 @@
     },
     
     methods: {
-      onSpeechChange(speechId) {
-        this.currentSpeech = this.speeches.find(s => s.id === speechId);
-        // 模拟加载演讲相关的测试数据
+      async fetchParticipantsAndSpeeches() {
+        const baseurl = inject('baseurl') as string;
+        // 获取所有演讲（假设/lecture/list）和所有参与者
+        const [speechesRes, participantsRes] = await Promise.all([
+          axios.get(baseurl + '/lecture/list'),
+          axios.get(baseurl + '/lecture-participants/list')
+        ]);
+        const speeches = speechesRes.data || [];
+        const participantsArr: LectureParticipant[] = Array.isArray(participantsRes.data) ? participantsRes.data : [];
+        // 过滤掉老师
+        const filteredParticipants = participantsArr.filter((p: LectureParticipant) => p.userType !== 'teacher');
+        // 统计每个演讲的参与人数
+        const speechMap: Record<number, number> = {};
+        filteredParticipants.forEach((p: LectureParticipant) => {
+          if (p.lectureId) {
+            speechMap[p.lectureId] = (speechMap[p.lectureId] || 0) + 1;
+          }
+        });
+        // 填充speeches的participants字段
+        speeches.forEach((speech: any) => {
+          speech.participants = speechMap[speech.id] || 0;
+        });
+        this.speeches = speeches;
+        this.totalParticipants = filteredParticipants.length;
+        // 默认选择第一个演讲
+        if (this.speeches.length > 0) {
+          this.selectedSpeech = this.speeches[0].id;
+          this.onSpeechChange(this.selectedSpeech);
+        }
+      },
+      onSpeechChange(speechId: number) {
+        this.currentSpeech = this.speeches.find((s: Speech) => s.id === speechId) || null;
+        // TODO: 可根据speechId加载对应quiz数据
         this.loadSpeechData(speechId);
       },
-      
-      selectQuiz(quizId) {
+      selectQuiz(quizId: number) {
         this.selectedQuiz = quizId;
-        // 模拟加载测试详细数据
+        // 保持原有模拟数据
         this.selectedQuizData = {
           id: quizId,
           title: '第一题：什么是机器学习？',
@@ -319,28 +297,22 @@
           ]
         };
       },
-      
-      getQuizStatusType(status) {
-        const statusMap = {
+      getQuizStatusType(status: string) {
+        const statusMap: Record<string, string> = {
           '已结束': 'success',
           '进行中': 'warning',
           '未开始': 'info'
         };
         return statusMap[status] || 'info';
       },
-      
-      loadSpeechData(speechId) {
-        // 模拟异步加载数据
-        console.log('Loading speech data for:', speechId);
+      loadSpeechData(speechId: number) {
+        // 保持原有模拟数据
+        // 可扩展为后端获取quiz数据
       }
     },
     
     mounted() {
-      // 默认选择第一个演讲
-      if (this.speeches.length > 0) {
-        this.selectedSpeech = this.speeches[0].id;
-        this.onSpeechChange(this.selectedSpeech);
-      }
+      this.fetchParticipantsAndSpeeches();
     }
   }
   </script>
