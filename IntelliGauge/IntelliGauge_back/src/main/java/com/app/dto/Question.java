@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.util.List;
 
+// 这是给deepseek接口调用的
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Question {
