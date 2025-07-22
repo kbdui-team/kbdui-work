@@ -81,7 +81,8 @@ public class AnswerHistoryController {
     @GetMapping("/student/{userId}")
     public StudentAnswerDTO getStudentAnswers(@PathVariable Integer userId,
                                               @RequestParam Integer pageNo,
-                                              @RequestParam Integer pageSize) {
-        return answerHistoryService.getAllAnswerHistoriesForStudent(pageNo, pageSize, userId);
+                                              @RequestParam Integer pageSize,
+                                              @RequestParam Integer lectureId) {
+        return answerHistoryService.getAllAnswerHistoriesForStudent(pageNo, pageSize, userId, lectureId);
     }
 } 
