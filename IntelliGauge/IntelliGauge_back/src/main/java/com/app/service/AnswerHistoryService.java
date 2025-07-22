@@ -14,6 +14,7 @@ import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -79,7 +80,7 @@ public class AnswerHistoryService {
         return result;
     }
 
-    public StudentAnswerDTO getAllAnswerHistoriesForStudent(Integer pageNo, Integer pageSize, Integer id) {
+    public StudentAnswerDTO getAllAnswerHistoriesForStudent(Integer pageNo, Integer pageSize, Integer id, Integer lecture_id) {
         // 获取学生信息
         UserDTO userDTO = userService.getUserById(id);
         // 查询该学生所有答题记录
@@ -94,6 +95,7 @@ public class AnswerHistoryService {
             answered.setAnswerTime(answerHistory.getAnswerTime());
             // 查询题目信息
             QuestionDTO questionDTO = questionService.getQuestionById(answerHistory.getQuestionId());
+            if(!questionDTO.getLectureId().equals(lecture_id)) return null; // 如果lecture_id不匹配，则返回null
             answered.setQuestionDTO(questionDTO);
             // 查询问题选项信息
             Map<String, Object> conditions = new HashMap<>();
@@ -101,7 +103,9 @@ public class AnswerHistoryService {
             List<QuestionOptionsDTO> questionOptionsDTOS = questionOptionsService.getAllQuestionOptionsByPage(1, 10, conditions).getRecords();
             answered.setQuestionOptionsDTOS(questionOptionsDTOS);
             return answered;
-        }).collect(Collectors.toList());
+        })
+                .filter(Objects::nonNull) // 过滤掉返回为 null 的元素
+                .collect(Collectors.toList());
         // 分页
         int fromIndex = (pageNo - 1) * pageSize;
         int toIndex = Math.min(fromIndex + pageSize, answeredQuestionDTOS.size());
