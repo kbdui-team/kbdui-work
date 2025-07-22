@@ -299,8 +299,58 @@
     </div>
   </template>
   
-  <script>
-  export default {
+  <script lang="ts">
+  import { defineComponent, inject } from 'vue';
+  import axios from 'axios';
+  import { ElMessage, ElMessageBox } from 'element-plus';
+
+  interface PopquizOption {
+    id: number;
+    text: string;
+    count: number;
+    isCorrect: boolean;
+  }
+
+  interface StudentAnswer {
+    studentName: string;
+    answer: string;
+    isCorrect: boolean;
+    responseTime: string;
+    submitTime: string;
+  }
+
+  interface Popquiz {
+    id: number;
+    question: string;
+    startTime: string;
+    duration: number;
+    correctCount: number;
+    incorrectCount: number;
+    options: PopquizOption[];
+    studentAnswers: StudentAnswer[];
+  }
+
+  interface TeachingRecord {
+    id: number;
+    title: string;
+    date: string;
+    duration: number;
+    participantCount: number;
+    popquizCount: number;
+    averageScore: number;
+    status: string;
+    courseId: number;
+    popquizzes: Popquiz[];
+  }
+
+  interface LectureParticipant {
+    id: number;
+    lectureId: number;
+    userType?: string; // 假设userType为'teacher'时为老师
+    // 其他字段可根据实际DTO补充
+  }
+
+  export default defineComponent({
     name: 'TeachingRecord',
     data() {
       return {
@@ -310,12 +360,12 @@
         totalItems: 0,
         drawerVisible: false,
         quizDialogVisible: false,
-        selectedRecord: null,
-        selectedQuiz: null,
+        selectedRecord: null as TeachingRecord | null,
+        selectedQuiz: null as Popquiz | null,
         
         // 筛选条件
-        selectedCourse: '',
-        dateRange: '',
+        selectedCourse: '' as number | '',
+        dateRange: '' as string | Date[],
         searchKeyword: '',
         
         // 课程选项
@@ -326,111 +376,35 @@
         ],
         
         // 教学记录数据
-        teachingRecords: [
-          {
-            id: 1,
-            title: '第一章：计算机基础概念',
-            date: '2024-01-15',
-            duration: 90,
-            participantCount: 32,
-            popquizCount: 3,
-            averageScore: 85.5,
-            status: '已完成',
-            courseId: 1,
-            popquizzes: [
-              {
-                id: 1,
-                question: '什么是计算机？',
-                startTime: '09:15:00',
-                duration: 60,
-                correctCount: 28,
-                incorrectCount: 4,
-                options: [
-                  { id: 1, text: '电子计算设备', count: 28, isCorrect: true },
-                  { id: 2, text: '机械设备', count: 2, isCorrect: false },
-                  { id: 3, text: '通信设备', count: 1, isCorrect: false },
-                  { id: 4, text: '存储设备', count: 1, isCorrect: false }
-                ],
-                studentAnswers: [
-                  { studentName: '张三', answer: 'A', isCorrect: true, responseTime: '15s', submitTime: '09:15:30' },
-                  { studentName: '李四', answer: 'A', isCorrect: true, responseTime: '22s', submitTime: '09:15:37' },
-                  { studentName: '王五', answer: 'B', isCorrect: false, responseTime: '18s', submitTime: '09:15:33' }
-                ]
-              },
-              {
-                id: 2,
-                question: '计算机的主要组成部分包括哪些？',
-                startTime: '09:45:00',
-                duration: 90,
-                correctCount: 25,
-                incorrectCount: 7,
-                options: [
-                  { id: 1, text: 'CPU、内存、存储、I/O设备', count: 25, isCorrect: true },
-                  { id: 2, text: '显示器、键盘、鼠标', count: 3, isCorrect: false },
-                  { id: 3, text: '操作系统、应用软件', count: 2, isCorrect: false },
-                  { id: 4, text: '网络设备', count: 2, isCorrect: false }
-                ],
-                studentAnswers: [
-                  { studentName: '张三', answer: 'A', isCorrect: true, responseTime: '25s', submitTime: '09:45:40' },
-                  { studentName: '李四', answer: 'B', isCorrect: false, responseTime: '30s', submitTime: '09:45:45' }
-                ]
-              }
-            ]
-          },
-          {
-            id: 2,
-            title: '第二章：数据结构与算法',
-            date: '2024-01-22',
-            duration: 120,
-            participantCount: 30,
-            popquizCount: 4,
-            averageScore: 78.2,
-            status: '已完成',
-            courseId: 1,
-            popquizzes: [
-              {
-                id: 3,
-                question: '数组的时间复杂度是多少？',
-                startTime: '10:30:00',
-                duration: 45,
-                correctCount: 22,
-                incorrectCount: 8,
-                options: [
-                  { id: 1, text: 'O(1)', count: 22, isCorrect: true },
-                  { id: 2, text: 'O(n)', count: 5, isCorrect: false },
-                  { id: 3, text: 'O(log n)', count: 2, isCorrect: false },
-                  { id: 4, text: 'O(n²)', count: 1, isCorrect: false }
-                ],
-                studentAnswers: [
-                  { studentName: '张三', answer: 'A', isCorrect: true, responseTime: '12s', submitTime: '10:30:25' },
-                  { studentName: '李四', answer: 'B', isCorrect: false, responseTime: '20s', submitTime: '10:30:35' }
-                ]
-              }
-            ]
-          }
-        ]
+        teachingRecords: [] as TeachingRecord[],
+        loading: false,
+        totalContentInputs: 0,
+        participantsMap: {} as Record<number, number>,
       }
     },
     
     computed: {
       // 统计数据
-      totalRecords() {
+      totalRecords(): number {
         return this.teachingRecords.length;
       },
       
-      totalPopquizzes() {
-        return this.teachingRecords.reduce((sum, record) => sum + record.popquizCount, 0);
+      totalPopquizzes(): number {
+        return this.totalContentInputs;
       },
       
-      averageParticipation() {
+      averageParticipation(): number {
         if (this.teachingRecords.length === 0) return 0;
-        const total = this.teachingRecords.reduce((sum, record) => sum + record.participantCount, 0);
+        const total = this.teachingRecords.reduce((sum, record) => sum + (this.participantsMap[record.id] || 0), 0);
         return Math.round(total / this.teachingRecords.length);
       },
       
       // 筛选后的记录
-      filteredRecords() {
-        let filtered = this.teachingRecords;
+      filteredRecords(): TeachingRecord[] {
+        let filtered = this.teachingRecords.map(record => ({
+          ...record,
+          participantCount: this.participantsMap[record.id] || 0
+        }));
         
         // 课程筛选
         if (this.selectedCourse) {
@@ -445,7 +419,7 @@
         }
         
         // 日期范围筛选
-        if (this.dateRange && this.dateRange.length === 2) {
+        if (Array.isArray(this.dateRange) && this.dateRange.length === 2) {
           filtered = filtered.filter(record => {
             const recordDate = new Date(record.date);
             return recordDate >= this.dateRange[0] && recordDate <= this.dateRange[1];
@@ -458,18 +432,18 @@
     
     methods: {
       // 格式化日期
-      formatDate(date) {
+      formatDate(date: string) {
         return new Date(date).toLocaleDateString('zh-CN');
       },
       
       // 格式化时间
-      formatTime(time) {
+      formatTime(time: string) {
         return time;
       },
       
       // 获取状态类型
-      getStatusType(status) {
-        const typeMap = {
+      getStatusType(status: string) {
+        const typeMap: Record<string, string> = {
           '已完成': 'success',
           '进行中': 'warning',
           '已取消': 'danger'
@@ -478,7 +452,7 @@
       },
       
       // 查看记录详情
-      viewRecordDetail(record) {
+      viewRecordDetail(record: TeachingRecord) {
         this.selectedRecord = record;
         this.drawerVisible = true;
       },
@@ -490,7 +464,7 @@
       },
       
       // 查看 Quiz 详情
-      viewQuizDetail(quiz) {
+      viewQuizDetail(quiz: Popquiz) {
         this.selectedQuiz = quiz;
         this.quizDialogVisible = true;
       },
@@ -502,43 +476,74 @@
       },
       
       // 获取选项百分比
-      getOptionPercentage(count) {
+      getOptionPercentage(count: number) {
         if (!this.selectedQuiz) return 0;
         const total = this.selectedQuiz.correctCount + this.selectedQuiz.incorrectCount;
         return total > 0 ? (count / total) * 100 : 0;
       },
       
       // 分页处理
-      handleSizeChange(val) {
+      handleSizeChange(val: number) {
         this.pageSize = val;
       },
       
-      handleCurrentChange(val) {
+      handleCurrentChange(val: number) {
         this.currentPage = val;
       },
       
       // 操作方法
       createNewRecord() {
-        this.$message.info('新建记录功能');
+        ElMessage.info('新建记录功能');
       },
       
-      editRecord(record) {
-        this.$message.info(`编辑记录: ${record.title}`);
+      editRecord(record: TeachingRecord) {
+        ElMessage.info(`编辑记录: ${record.title}`);
       },
       
-      deleteRecord(record) {
-        this.$confirm('此操作将永久删除该记录, 是否继续?', '提示', {
+      deleteRecord(record: TeachingRecord) {
+        ElMessageBox.confirm('此操作将永久删除该记录, 是否继续?', '提示', {
           confirmButtonText: '确定',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          this.$message.success('删除成功!');
+          ElMessage.success('删除成功!');
         }).catch(() => {
-          this.$message.info('已取消删除');
+          ElMessage.info('已取消删除');
         });
+      },
+
+      async fetchTeachingRecords() {
+        this.loading = true;
+        try {
+          const baseurl = inject('baseurl') as string;
+          const [lectureRes, contentInputRes, participantsRes] = await Promise.all([
+            axios.get(baseurl + '/lecture/list'),
+            axios.get(baseurl + '/content-input/list'),
+            axios.get(baseurl + '/lecture-participants/list')
+          ]);
+          this.teachingRecords = lectureRes.data || [];
+          this.totalItems = this.teachingRecords.length;
+          this.totalContentInputs = Array.isArray(contentInputRes.data) ? contentInputRes.data.length : 0;
+          // 统计每个lectureId的参与人数
+          const participantsArr = Array.isArray(participantsRes.data) ? participantsRes.data as LectureParticipant[] : [];
+          const map: Record<number, number> = {};
+          participantsArr.forEach((item: LectureParticipant) => {
+            if (item.lectureId && item.userType !== 'teacher') {
+              map[item.lectureId] = (map[item.lectureId] || 0) + 1;
+            }
+          });
+          this.participantsMap = map;
+        } catch {
+          ElMessage.error('获取教学记录、Popquiz数量或参与人数失败');
+        } finally {
+          this.loading = false;
+        }
       }
+    },
+    mounted() {
+      this.fetchTeachingRecords();
     }
-  }
+  });
   </script>
   
   <style scoped>

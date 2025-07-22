@@ -11,6 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/lecture")
+@CrossOrigin
 @Slf4j
 public class LectureController {
     @Resource

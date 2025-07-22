@@ -214,7 +214,7 @@
           @back-to-home="handleBackToHome"
           @quiz-complete="handleQuizComplete"
         />
-        <component :is="WrongReview.default" v-else-if="activeItem === 'review'" />
+        <component :is="WrongReview.default" v-else-if="activeItem === 'review'" :student-id="userInfo.studentId" />
         <component :is="Ranking.default" v-else-if="activeItem === 'ranking'" />
         <component :is="StudyProgress.default" v-else-if="activeItem === 'progress'" />
         <router-view v-else />
@@ -282,7 +282,7 @@ onMounted(() => {
       userInfo.userType = user.userType || ''
       // 下面字段如有后端返回可直接赋值，否则留空
       userInfo.class = user.class || ''
-      userInfo.studentId = user.studentId || ''
+      userInfo.studentId = String(user.id || '')
       userInfo.enrollmentDate = user.enrollmentDate || ''
       // 可选：头像
       userInfo.avatar = user.avatar || userInfo.avatar

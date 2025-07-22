@@ -29,28 +29,14 @@
       <transition-group name="fade" tag="div">
         <div v-for="item in filteredList" :key="item.id" class="wrong-card">
           <div class="card-header">
-            <span class="subject">{{ item.subject }}</span>
-            <span class="date">{{ item.time }}</span>
+            <span class="subject">题目ID: {{ item.id }}</span>
+            <span class="date">答题时间: {{ item.time }}</span>
           </div>
-          <div class="question">{{ item.question }}</div>
+          <div class="question">题干: {{ item.question }}</div>
           <div class="options">
-            <div
-              v-for="(opt, idx) in item.options"
-              :key="idx"
-              :class="[
-                'option',
-                item.myAnswer === opt.key ? (item.myAnswer === item.correctAnswer ? 'right' : 'wrong') : '',
-                item.correctAnswer === opt.key && item.myAnswer !== opt.key ? 'right' : ''
-              ]"
-            >
-              <span class="opt-key">{{ opt.key }}.</span>
-              <span>{{ opt.text }}</span>
-              <span v-if="item.myAnswer === opt.key" class="tag">我的选择</span>
-              <span v-if="item.correctAnswer === opt.key" class="tag right-tag">正确答案</span>
-            </div>
-          </div>
-          <div class="explain" v-if="item.explanation">
-            <span>解析：</span>{{ item.explanation }}
+            <div>我的答案: {{ item.myAnswer }}</div>
+            <div>isCorrect: {{ item.isCorrect }}</div>
+            <div>原始数据: {{ JSON.stringify(item.raw, null, 2) }}</div>
           </div>
         </div>
       </transition-group>
@@ -59,79 +45,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import type { AxiosResponse } from 'axios'
+import request from '@/utils/request'
+
+const props = defineProps<{ studentId: string }>()
+
+const filterType = ref<'today' | 'all'>('today')
+const wrongList = ref<any[]>([])
 
 function getTodayStr() {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const filterType = ref<'today' | 'all'>('today')
-
-const wrongList = ref([
-  {
-    id: 1,
-    question: '下列哪种数据结构最适合实现队列？',
-    options: [
-      { key: 'A', text: '链表' },
-      { key: 'B', text: '栈' },
-      { key: 'C', text: '哈希表' },
-      { key: 'D', text: '树' }
-    ],
-    myAnswer: 'B',
-    correctAnswer: 'A',
-    explanation: '链表可以高效地实现队列的入队和出队操作。',
-    subject: '数据结构',
-    time: getTodayStr()
-  },
-  {
-    id: 2,
-    question: '操作系统中，用于实现进程间通信的机制是？',
-    options: [
-      { key: 'A', text: '中断' },
-      { key: 'B', text: '信号量' },
-      { key: 'C', text: '虚拟内存' },
-      { key: 'D', text: '死锁' }
-    ],
-    myAnswer: 'A',
-    correctAnswer: 'B',
-    explanation: '信号量是一种常用的进程间通信与同步机制。',
-    subject: '操作系统',
-    time: '2024-06-02'
-  },
-  {
-    id: 3,
-    question: '冯·诺依曼计算机体系结构中，不包括以下哪一项？',
-    options: [
-      { key: 'A', text: '运算器' },
-      { key: 'B', text: '控制器' },
-      { key: 'C', text: '输入设备' },
-      { key: 'D', text: '图形处理器' }
-    ],
-    myAnswer: 'D',
-    correctAnswer: 'D',
-    explanation: '冯·诺依曼体系结构包括运算器、控制器、存储器、输入设备和输出设备，不包括GPU。',
-    subject: '计算机组成原理',
-    time: '2024-06-01'
-  },
-  {
-    id: 4,
-    question: '下列哪种协议工作在OSI模型的传输层？',
-    options: [
-      { key: 'A', text: 'IP' },
-      { key: 'B', text: 'TCP' },
-      { key: 'C', text: 'ARP' },
-      { key: 'D', text: 'ICMP' }
-    ],
-    myAnswer: 'A',
-    correctAnswer: 'B',
-    explanation: 'TCP协议属于传输层，IP属于网络层。',
-    subject: '计算机网络',
-    time: '2024-06-03'
-  }
-])
-
 const todayStr = getTodayStr()
+
 const filteredList = computed(() => {
   if (filterType.value === 'today') {
     return wrongList.value.filter(item => item.time === todayStr)
@@ -141,6 +70,49 @@ const filteredList = computed(() => {
 })
 const todayCount = computed(() => wrongList.value.filter(item => item.time === todayStr).length)
 const allCount = computed(() => wrongList.value.length)
+
+async function fetchWrongList(studentId: string) {
+  if (!studentId) return
+  try {
+    const res: AxiosResponse = await request.get(`/answerHistory/student/${studentId}`)
+    // 适配 AnswerHistoryDTO 返回结构
+    if (res.data) {
+      // 这里假设返回的是单个答题记录对象，转为数组以便页面展示
+      const item = res.data
+      const q = item.questionDTO || {}
+      wrongList.value = [{
+        id: q.id,
+        question: q.questionText,
+        myAnswer: item.userAnswer,
+        isCorrect: item.isCorrect,
+        time: item.answerTime ? new Date(item.answerTime).toISOString().slice(0, 10) : '',
+        raw: item
+      }]
+    }
+  } catch (e) {
+    console.error('获取答题数据失败', e)
+  }
+}
+
+onMounted(() => {
+  fetchWrongList(props.studentId)
+})
+
+watch(() => props.studentId, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    fetchWrongList(newId)
+  }
+})
+</script>
+
+<script lang="ts">
+export default {
+  filters: {
+    json(value: any) {
+      return JSON.stringify(value, null, 2)
+    }
+  }
+}
 </script>
 
 <style scoped>
