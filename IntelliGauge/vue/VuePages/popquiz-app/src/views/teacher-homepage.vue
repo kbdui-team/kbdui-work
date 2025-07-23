@@ -187,6 +187,7 @@
           <ScoreManagementComponent v-else-if="activeItem === 'ranking'" />
           <TeachingRecordComponent v-else-if="activeItem === 'review'" />
           <component :is="OratorResult.default" v-else-if="activeItem === 'orator_result'" />
+          <notifications v-else-if="activeItem === 'notifications'" />
           <CollectComponent 
             v-else
             @uploadSuccess="handleUploadSuccess"
@@ -209,6 +210,7 @@
   import StudentManagementComponent from '@/components/StudentManagementComponent.vue'
   import ScoreManagementComponent from '../components/ScoreManagementComponent.vue'
   import TeachingRecordComponent from '../components/TeachingRecordComponent.vue'
+  import notifications from './notification.vue'
   import * as OratorResult from './orator_result.vue'
   import {
     User, School, Postcard, Phone, Message,
@@ -256,7 +258,6 @@
       } catch {}
     }
   })
-  
   // 当前页面标题
   const currentPageTitle = computed(() => {
     const titleMap: Record<string, string> = {
