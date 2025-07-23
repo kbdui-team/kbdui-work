@@ -13,6 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/answerHistory")
+@CrossOrigin
 public class AnswerHistoryController {
     @Resource
     private AnswerHistoryService answerHistoryService;

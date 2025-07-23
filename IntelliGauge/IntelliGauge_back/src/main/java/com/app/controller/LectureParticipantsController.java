@@ -11,6 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/lecture-participants")
+@CrossOrigin
 @Slf4j
 public class LectureParticipantsController {
     @Resource

@@ -209,15 +209,27 @@ const radio2 = ref('1')
   const fetchQuestions = async () => {
     loadingQuestions.value = true
     try {
+      // 1. 获取所有答题记录
+      let answeredIds: number[] = []
+      const userId = getCurrentUserId()
+      if (userId !== null) {
+        try {
+          const answerRes = await axios.get(`${baseurl}/answerHistory/list`)
+          if (Array.isArray(answerRes.data)) {
+            answeredIds = answerRes.data
+              .filter((item: any) => item.userId === userId)
+              .map((item: any) => item.questionId)
+          }
+        } catch (e) {
+          console.error('获取答题记录失败', e)
+        }
+      }
+      // 2. 获取所有题目和选项
       const ts = Date.now();
-      // 兼容baseurl不存在时的绝对路径
       const qUrl = baseurl ? `${baseurl}/question/list?t=${ts}` : `/question/list?t=${ts}`;
       const oUrl = baseurl ? `${baseurl}/question-options/list?t=${ts}` : `/question-options/list?t=${ts}`;
       const qRes = await axios.get(qUrl)
       const oRes = await axios.get(oUrl)
-      console.log('题目接口请求:', qUrl, '返回:', qRes.data)
-      console.log('选项接口请求:', oUrl, '返回:', oRes.data)
-      // 严格按后端字段名判断
       const qList = Array.isArray(qRes.data) ? qRes.data : [];
       const oList = Array.isArray(oRes.data) ? oRes.data : [];
       if (!qList.length || !oList.length) {
@@ -225,15 +237,16 @@ const radio2 = ref('1')
         questions.value = [];
         return;
       }
-      // 合并题目和选项
+      // 3. 过滤掉已答过的题目
+      const filteredQList = userId !== null ? qList.filter((q: any) => !answeredIds.includes(q.id)) : qList
+      // 4. 合并题目和选项
       const optionMap = new Map();
       oList.forEach((opt: any) => {
         if (!optionMap.has(opt.questionId)) optionMap.set(opt.questionId, []);
         optionMap.get(opt.questionId).push(opt);
       });
-      questions.value = qList.map((q: any) => {
+      questions.value = filteredQList.map((q: any) => {
         const opts = optionMap.get(q.id) || [];
-        // 选项按optionOrder排序（A/B/C/D...）
         opts.sort((a: any, b: any) => (a.optionOrder > b.optionOrder ? 1 : -1));
         return {
           ...q,
@@ -245,7 +258,7 @@ const radio2 = ref('1')
         };
       });
       if (questions.value.length === 0) {
-        ElMessage.warning('暂无题目数据')
+        ElMessage.warning('暂无可答题目')
       }
     } catch (e) {
       console.error('获取题目或选项失败', e)
@@ -290,14 +303,45 @@ const radio2 = ref('1')
     selectedAnswer.value = index
   }
   
-  const submitAnswer = () => {
+  // 获取当前用户信息（假设已登录并存储在 localStorage）
+  function getCurrentUserId() {
+    try {
+      const userStr = localStorage.getItem('currentUser')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        return user.id
+      }
+    } catch {}
+    return null
+  }
+
+  const submitAnswer = async () => {
     if (selectedAnswer.value === null) {
       selectedAnswer.value = -1 // 标记为未选择
     }
-    
+
     stopTimer()
     showAnswer.value = true
-    
+
+    // 保存答题记录到数据库
+    const userId = getCurrentUserId()
+    if (userId !== null) {
+      const answerHistoryDTO = {
+        userId: userId,
+        questionId: currentQuestion.value.id, // 新增
+        userAnswer: selectedAnswer.value !== -1 ? String.fromCharCode(65 + selectedAnswer.value) : '',
+        isCorrect: selectedAnswer.value === currentQuestion.value.correct ? 1 : 0,
+        answerTime: Date.now(),
+        // questionDTO 字段可省略，后端只需 questionId
+      }
+      try {
+        await axios.post(`${baseurl}/answerHistory/add`, answerHistoryDTO)
+      } catch (e) {
+        // 可选：ElMessage.error('答题记录保存失败')
+        console.error('答题记录保存失败', e)
+      }
+    }
+
     if (selectedAnswer.value === currentQuestion.value.correct) {
       correctAnswers.value++
       const timeBonus = Math.max(0, timeLeft.value * 2)
