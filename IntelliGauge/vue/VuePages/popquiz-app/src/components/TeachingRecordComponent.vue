@@ -56,17 +56,7 @@
             </el-button>
           </div>
         </div>
-        
-        <div class="card-content">
-          <div class="info-row">
-            <span><el-icon><User /></el-icon> {{ item.speaker }}</span>
-            <span><el-icon><Location /></el-icon> {{ item.location }}</span>
-            <span><el-icon><Calendar /></el-icon> {{ formatDate(item.startTime) }}</span>
-          </div>
-          <div class="capacity-info">
-            容量: {{ item.registeredCount || 0 }}/{{ item.capacity }}人
-          </div>
-        </div>
+       
       </div>
     </div>
 
