@@ -37,11 +37,11 @@
           </el-form-item>
           <el-form-item prop="userType">
             <el-select v-model="registerForm.userType" placeholder="请选择用户类型" clearable>
-              <el-option label="普通用户" value="user" />
-              <el-option label="管理员" value="admin" />
+              <el-option label="学生" value="student" />
+              <el-option label="教师" value="teacher" />
             </el-select>
           </el-form-item>
-          <el-form-item prop="status">
+          <!-- <el-form-item prop="status">
             <el-input
               v-model="registerForm.status"
               placeholder="请输入状态（可选，默认 active）"
@@ -51,7 +51,7 @@
                 <el-icon><User /></el-icon>
               </template>
             </el-input>
-          </el-form-item>
+          </el-form-item> -->
           
           <el-form-item prop="email">
             <el-input

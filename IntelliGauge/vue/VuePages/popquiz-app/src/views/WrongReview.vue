@@ -3,6 +3,12 @@
     <div class="decor-left"></div>
     <div class="decor-right"></div>
     <div class="wrong-review">
+      <!-- 新增统计信息展示 -->
+      <div v-if="statInfo" class="stat-info-bar">
+        <span>已答题数：<b>{{ statInfo.answeredCount }}</b></span>
+        <span>正确数：<b style="color:#27ae60">{{ statInfo.correctCount }}</b></span>
+        <span>总题数：<b>{{ statInfo.totalCount }}</b></span>
+      </div>
       <div class="header-row">
         <h2>错题回顾</h2>
         <div class="filter-bar">
@@ -29,14 +35,38 @@
       <transition-group name="fade" tag="div">
         <div v-for="item in filteredList" :key="item.id" class="wrong-card">
           <div class="card-header">
-            <span class="subject">题目ID: {{ item.id }}</span>
+            <span class="subject">题目ID: <b>{{ item.id }}</b></span>
             <span class="date">答题时间: {{ item.time }}</span>
           </div>
-          <div class="question">题干: {{ item.question }}</div>
+          <div class="question">
+            <span class="question-label">题干：</span>
+            <span class="question-content" v-if="item.question">{{ item.question }}</span>
+            <span class="question-content empty" v-else>暂无题干</span>
+          </div>
+          <div class="options-list" v-if="item.options && item.options.length">
+            <div v-for="(opt, idx) in item.options" :key="opt.id" class="option-item">
+              <span class="option-label">{{ String.fromCharCode(65 + idx) }}.</span>
+              <span class="option-text" :style="(opt.isCorrect === 'true' || opt.isCorrect === true) ? 'color:#27ae60;font-weight:bold;' : ''">
+                {{ opt.optionText }}
+                <span v-if="opt.isCorrect === 'true' || opt.isCorrect === true" style="margin-left:8px;color:#27ae60;font-size:13px;">（正确答案）</span>
+              </span>
+            </div>
+          </div>
           <div class="options">
-            <div>我的答案: {{ item.myAnswer }}</div>
-            <div>isCorrect: {{ item.isCorrect }}</div>
-            <div>原始数据: {{ JSON.stringify(item.raw, null, 2) }}</div>
+            <div>
+              <span class="my-answer-label">我的答案：</span>
+              <span :class="['my-answer', item.isCorrect === 1 ? 'right' : 'wrong']">{{ item.myAnswer }}</span>
+              <span v-if="item.isCorrect === 1" class="tag right-tag">正确</span>
+              <span v-else class="tag wrong-tag">错误</span>
+            </div>
+
+            <!-- 调试使用信息，能看到原始数据 -->
+            <!-- <div class="is-correct">isCorrect: <b :class="item.isCorrect === 1 ? 'right' : 'wrong'">{{ item.isCorrect }}</b></div>
+            <details class="raw-details">
+              <summary>原始数据</summary>
+              <pre>{{ JSON.stringify(item.raw, null, 2) }}</pre>
+            </details> -->
+
           </div>
         </div>
       </transition-group>
@@ -49,10 +79,48 @@ import { ref, computed, onMounted, watch } from 'vue'
 import type { AxiosResponse } from 'axios'
 import request from '@/utils/request'
 
-const props = defineProps<{ studentId: string }>()
+// 修改 props，允许 lectureId 为 string 或 number
+const props = defineProps<{ studentId: string | number, lectureId: string | number }>()
 
 const filterType = ref<'today' | 'all'>('today')
-const wrongList = ref<any[]>([])
+const wrongList = ref<Array<{
+  id: number
+  question: string
+  options?: Array<{ id: number; questionId: number; optionText: string; optionOrder: string; isCorrect?: string | boolean }>
+  myAnswer: string
+  isCorrect: number
+  time: string
+  raw: AnswerHistoryRecord
+}>>([])
+
+// 新增：答题统计信息
+const statInfo = ref<{ answeredCount: number; correctCount: number; totalCount: number } | null>(null)
+
+// 新增：所有题目列表
+const allQuestions = ref<Array<{ id: number; questionText: string }>>([])
+
+// 新增：所有题目选项列表
+const allOptions = ref<Array<{ id: number; questionId: number; optionText: string; optionOrder: string }>>([])
+
+// 定义 AnswerHistoryRecord 类型
+interface AnswerHistoryRecord {
+  id: number
+  userAnswer: string
+  isCorrect: number
+  answerTime?: number | string
+  questionDTO?: {
+    id: number
+    questionText: string
+  }
+  questionId: number // Added for mapping
+  [key: string]: any
+}
+
+// 定义 QuestionDTO 类型
+interface QuestionDTO {
+  id: number
+  questionText: string
+}
 
 function getTodayStr() {
   const d = new Date()
@@ -71,36 +139,161 @@ const filteredList = computed(() => {
 const todayCount = computed(() => wrongList.value.filter(item => item.time === todayStr).length)
 const allCount = computed(() => wrongList.value.length)
 
-async function fetchWrongList(studentId: string) {
-  if (!studentId) return
+async function fetchWrongList(studentId: string | number, lectureId: string | number) {
+  if (!studentId || !lectureId) return
+  const userIdNum = Number(studentId)
+  const lectureIdNum = Number(lectureId)
+  if (isNaN(userIdNum) || userIdNum <= 0 || isNaN(lectureIdNum) || lectureIdNum <= 0) {
+    console.error('studentId 或 lectureId 非法:', studentId, lectureId)
+    wrongList.value = []
+    return
+  }
+  // 始终传递 userId 和 lectureId
+  const postData = { userId: userIdNum, lectureId: lectureIdNum }
   try {
-    const res: AxiosResponse = await request.get(`/answerHistory/student/${studentId}`)
-    // 适配 AnswerHistoryDTO 返回结构
-    if (res.data) {
-      // 这里假设返回的是单个答题记录对象，转为数组以便页面展示
-      const item = res.data
-      const q = item.questionDTO || {}
-      wrongList.value = [{
-        id: q.id,
-        question: q.questionText,
-        myAnswer: item.userAnswer,
-        isCorrect: item.isCorrect,
-        time: item.answerTime ? new Date(item.answerTime).toISOString().slice(0, 10) : '',
-        raw: item
-      }]
+    const res: AxiosResponse = await request.post(
+      `/answerHistory/student/${userIdNum}/answers/query`,
+      postData
+    )
+    // 适配新接口结构，筛选错题
+    if (res.data && Array.isArray(res.data.answeredQuestionDTOS)) {
+      wrongList.value = res.data.answeredQuestionDTOS
+        .filter((item: any) => item.isCorrect === 0)
+        .map((item: any) => {
+          const q = item.questionDTO || { id: 0, questionText: '' }
+          return {
+            id: q.id,
+            question: q.questionText,
+            myAnswer: item.userAnswer,
+            isCorrect: item.isCorrect,
+            time: item.answerTime ? new Date(item.answerTime).toISOString().slice(0, 10) : '',
+            raw: item
+          }
+        })
+    } else {
+      wrongList.value = []
     }
-  } catch (e) {
+  } catch (e: any) {
+    if (e.response) {
+      console.error('后端返回:', e.response.data)
+    }
     console.error('获取答题数据失败', e)
+    wrongList.value = []
   }
 }
 
-onMounted(() => {
-  fetchWrongList(props.studentId)
+// 获取所有题目
+async function fetchAllQuestions() {
+  try {
+    const res: AxiosResponse = await request.get('/question/list')
+    if (Array.isArray(res.data)) {
+      allQuestions.value = res.data
+    } else {
+      allQuestions.value = []
+    }
+  } catch (e) {
+    allQuestions.value = []
+    console.error('获取题库失败', e)
+  }
+}
+
+// 获取所有题目选项
+async function fetchAllOptions() {
+  try {
+    const res: AxiosResponse = await request.get('/question-options/list')
+    if (Array.isArray(res.data)) {
+      allOptions.value = res.data
+    } else {
+      allOptions.value = []
+    }
+  } catch (e) {
+    allOptions.value = []
+    console.error('获取题目选项失败', e)
+  }
+}
+
+// 修改：获取所有讲座下错题时，补全题干和选项
+async function fetchAllLectureWrongList(studentId: string | number) {
+  if (!studentId) return
+  const userIdNum = Number(studentId)
+  if (isNaN(userIdNum) || userIdNum <= 0) {
+    wrongList.value = []
+    return
+  }
+  try {
+    // 1. 获取所有讲座
+    const lectureRes: AxiosResponse = await request.get('/lecture/list')
+    const lectures: Array<{ id: number }> = Array.isArray(lectureRes.data) ? lectureRes.data : []
+    if (!lectures.length) {
+      wrongList.value = []
+      return
+    }
+    // 2. 并发获取所有讲座下错题，body 带 userId/pageNo/pageSize/lectureId
+    const allWrongLists = await Promise.all(
+      lectures.map(async (lecture) => {
+        try {
+          const body = {
+            pageNo: 1,
+            pageSize: 100,
+            lectureId: lecture.id
+          }
+          const res: AxiosResponse = await request.post(
+            `/answerHistory/student/${userIdNum}/answers/query`,
+            body
+          )
+          if (res.data && Array.isArray(res.data.answeredQuestionDTOS)) {
+            return res.data.answeredQuestionDTOS
+              .filter((item: any) => item.isCorrect === 0)
+              .map((item: any) => {
+                // 优先用题库的题干
+                const qid = item.questionDTO?.id || item.questionId || 0
+                let questionText = ''
+                const found = allQuestions.value.find(q => q.id === qid)
+                if (found) {
+                  questionText = found.questionText
+                } else if (item.questionDTO && item.questionDTO.questionText) {
+                  questionText = item.questionDTO.questionText
+                }
+                // 取出该题的所有选项，按 optionOrder 排序
+                const options = allOptions.value
+                  .filter(opt => opt.questionId === qid)
+                  .sort((a, b) => a.optionOrder.localeCompare(b.optionOrder))
+                  .slice(0, 4)
+                return {
+                  id: qid,
+                  question: questionText,
+                  options: options,
+                  myAnswer: item.userAnswer,
+                  isCorrect: item.isCorrect,
+                  time: item.answerTime ? new Date(item.answerTime).toISOString().slice(0, 10) : '',
+                  raw: item
+                }
+              })
+          }
+        } catch {}
+        return []
+      })
+    )
+    // 3. 合并所有错题
+    wrongList.value = allWrongLists.flat()
+  } catch (e) {
+    wrongList.value = []
+    console.error('获取所有讲座错题失败', e)
+  }
+}
+
+
+onMounted(async () => {
+  await fetchAllQuestions()
+  await fetchAllOptions()
+  await fetchAllLectureWrongList(props.studentId)
 })
 
-watch(() => props.studentId, (newId, oldId) => {
+watch(() => props.studentId, async (newId, oldId) => {
   if (newId && newId !== oldId) {
-    fetchWrongList(newId)
+    await fetchAllQuestions()
+    await fetchAllOptions()
+    await fetchAllLectureWrongList(newId)
   }
 })
 </script>
@@ -118,7 +311,7 @@ export default {
 <style scoped>
 .wrong-review {
   padding: 32px 0 0 0;
-  max-width: 700px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 .header-row {
@@ -190,12 +383,20 @@ h2 {
 }
 .wrong-card {
   background: #fff;
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 4px 18px #e0e0e0;
-  padding: 24px 28px 18px 28px;
-  margin-bottom: 28px;
-  transition: box-shadow 0.2s;
-  border-left: 6px solid #6c63ff22;
+  padding: 28px 48px 22px 48px;
+  margin-bottom: 32px;
+  border-left: 8px solid #6c63ff22;
+  transition: box-shadow 0.2s, transform 0.2s;
+  position: relative;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.wrong-card:hover {
+  box-shadow: 0 8px 32px #bdbdfc55;
+  transform: translateY(-2px) scale(1.01);
 }
 .card-header {
   display: flex;
@@ -206,7 +407,7 @@ h2 {
 .subject {
   color: #6c63ff;
   font-weight: bold;
-  font-size: 15px;
+  font-size: 16px;
 }
 .date {
   color: #bbb;
@@ -217,62 +418,90 @@ h2 {
   margin-bottom: 12px;
   font-size: 1.1em;
   color: #333;
+  display: flex;
+  align-items: center;
+}
+.question-label {
+  color: #a084ee;
+  margin-right: 8px;
+}
+.question-content.empty {
+  color: #bbb;
+  font-style: italic;
 }
 .options {
   margin-bottom: 10px;
-}
-.option {
-  padding: 7px 14px;
-  border-radius: 7px;
-  margin-bottom: 5px;
-  display: flex;
-  align-items: center;
-  background: #f6f8fa;
-  position: relative;
   font-size: 15px;
-  transition: background 0.2s, color 0.2s;
 }
-.option.wrong {
-  background: #ffeaea;
-  color: #e74c3c;
+.my-answer-label {
+  color: #888;
+}
+.my-answer {
   font-weight: bold;
+  margin-left: 4px;
+  margin-right: 8px;
 }
-.option.right {
-  background: #eafaf1;
+.my-answer.right {
   color: #27ae60;
-  font-weight: bold;
 }
-.opt-key {
-  width: 24px;
-  display: inline-block;
+.my-answer.wrong {
+  color: #e74c3c;
 }
 .tag {
   font-size: 12px;
-  background: #f5c6cb;
-  color: #a94442;
   border-radius: 4px;
-  padding: 2px 6px;
-  margin-left: 10px;
+  padding: 2px 8px;
+  margin-left: 8px;
 }
 .right-tag {
-  background: #b7ebc6;
-  color: #237804;
+  background: #eafaf1;
+  color: #27ae60;
+  border: 1px solid #b7ebc6;
 }
-.explain {
-  background: #f6f8fa;
-  padding: 8px 12px;
-  border-radius: 6px;
-  margin-bottom: 8px;
-  color: #555;
-  font-size: 14px;
-  margin-top: 8px;
-  border-left: 3px solid #6c63ff44;
+.wrong-tag {
+  background: #ffeaea;
+  color: #e74c3c;
+  border: 1px solid #f5c6cb;
 }
-.meta {
-  font-size: 12px;
+.is-correct {
+  margin-top: 4px;
   color: #888;
+}
+.is-correct .right {
+  color: #27ae60;
+}
+.is-correct .wrong {
+  color: #e74c3c;
+}
+.raw-details {
+  margin-top: 8px;
+  font-size: 13px;
+}
+.raw-details summary {
+  cursor: pointer;
+  color: #6c63ff;
+  font-weight: 500;
+}
+.raw-details pre {
+  background: #f6f8fa;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+  overflow-x: auto;
+}
+.stat-info-bar {
   display: flex;
-  justify-content: space-between;
+  gap: 32px;
+  background: #f3f3fa;
+  border-radius: 10px;
+  padding: 12px 24px;
+  margin-bottom: 18px;
+  font-size: 16px;
+  color: #5a4fcf;
+  align-items: center;
+  box-shadow: 0 2px 8px #e0e0e0;
 }
 .decor-left {
   position: fixed;
