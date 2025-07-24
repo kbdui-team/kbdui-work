@@ -135,12 +135,12 @@
               <el-tag :type="getStatusColor(scope.row.status)">{{ scope.row.status }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="extractedText" label="提取文字预览" min-width="200">
+          <!-- <el-table-column prop="extractedText" label="提取文字预览" min-width="200">
             <template #default="scope">
               <div class="text-preview">{{ scope.row.extractedText }}</div>
             </template>
-          </el-table-column>
-          <el-table-column prop="uploadTime" label="上传时间" width="180"></el-table-column>
+          </el-table-column> -->
+          <!-- <el-table-column prop="uploadTime" label="上传时间" width="180"></el-table-column> -->
           <el-table-column label="操作" width="120">
             <template #default="scope">
               <el-button size="small" @click="viewDetails(scope.row)">详情</el-button>

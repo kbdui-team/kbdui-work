@@ -2,8 +2,8 @@ package com.app.dao;
 
 import com.app.entity.AnswerHistoryDO;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import org.springframework.stereotype.Repository;
+import org.apache.ibatis.annotations.Mapper;
 
-@Repository
+@Mapper
 public interface AnswerHistoryDAO extends BaseMapper<AnswerHistoryDO> {
 } 

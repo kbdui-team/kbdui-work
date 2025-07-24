@@ -23,6 +23,7 @@ import com.app.service.QuestionService;
 import com.app.dto.UserDTO;
 import com.app.dto.QuestionDTO;
 import com.app.dto.answer.AnsweredQuestionDTO;
+import response.StudentLectureAnswerStatResponse;
 
 @Service
 @Slf4j
@@ -115,6 +116,36 @@ public class AnswerHistoryService {
         studentAnswerDTO.setUserDTO(userDTO);
         studentAnswerDTO.setAnsweredQuestionDTOS(pagedList);
         return studentAnswerDTO;
+    }
+
+    /**
+     * 统计学生在某讲座下的答题情况
+     * @param userId 学生ID
+     * @param lectureId 讲座ID
+     * @return StudentLectureAnswerStatResponse
+     */
+    public StudentLectureAnswerStatResponse getStudentLectureAnswerStat(Integer userId, Integer lectureId) {
+        // 1. 查询该讲座下所有题目
+        List<QuestionDTO> allLectureQuestions = questionService.getAllQuestions().stream()
+                .filter(q -> q.getLectureId().equals(lectureId))
+                .collect(Collectors.toList());
+        int totalCount = allLectureQuestions.size();
+        // 2. 查询该学生在该讲座下所有答题记录
+        List<AnswerHistoryDO> answerHistoryList = answerHistoryDAO.selectList(
+            new QueryWrapper<AnswerHistoryDO>().eq("user_id", userId)
+        );
+        // 3. 过滤出属于该讲座的答题记录
+        List<AnswerHistoryDO> lectureAnswerList = answerHistoryList.stream()
+                .filter(a -> allLectureQuestions.stream().anyMatch(q -> q.getId().equals(a.getQuestionId())))
+                .collect(Collectors.toList());
+        int answeredCount = lectureAnswerList.size();
+        int correctCount = (int) lectureAnswerList.stream().filter(a -> a.getIsCorrect() != null && a.getIsCorrect() == 1).count();
+        // 4. 封装响应
+        StudentLectureAnswerStatResponse resp = new StudentLectureAnswerStatResponse();
+        resp.setAnsweredCount(answeredCount);
+        resp.setCorrectCount(correctCount);
+        resp.setTotalCount(totalCount);
+        return resp;
     }
 
     private String camelToSnake(String str) {

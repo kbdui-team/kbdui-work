@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.annotation.Resource;
 import java.util.List;
 import java.util.Map;
+import response.StudentLectureAnswerStatResponse;
 
 @RestController
 @RequestMapping("/answerHistory")
@@ -88,5 +89,14 @@ public class AnswerHistoryController {
                 request.getPageSize(),
                 userId,
                 request.getLectureId());
+    }
+
+    /**
+     * 查询学生在某讲座下的答题统计信息
+     */
+    @GetMapping("/student/{userId}/lecture/{lectureId}/stat")
+    public StudentLectureAnswerStatResponse getStudentLectureAnswerStat(@PathVariable Integer userId,
+                                                                       @PathVariable Integer lectureId) {
+        return answerHistoryService.getStudentLectureAnswerStat(userId, lectureId);
     }
 } 
