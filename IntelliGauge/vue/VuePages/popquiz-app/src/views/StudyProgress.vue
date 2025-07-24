@@ -50,12 +50,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import request from '@/utils/request'
 
 const stats = ref({
-  finished: 120,
-  accuracy: 88,
-  days: 7
+  finished: 0,
+  accuracy: 0,
+  days: 0
 })
 
 const jsDayToZh = ['日', '一', '二', '三', '四', '五', '六']
@@ -63,13 +64,13 @@ const today = new Date()
 const todayIndex = today.getDay() // 0-6
 
 const weekData = ref([
-  { day: '一', count: 10 },
-  { day: '二', count: 15 },
-  { day: '三', count: 20 },
-  { day: '四', count: 18 },
-  { day: '五', count: 22 },
-  { day: '六', count: 25 },
-  { day: '日', count: 10 }
+  { day: '一', count: 0 },
+  { day: '二', count: 0 },
+  { day: '三', count: 0 },
+  { day: '四', count: 0 },
+  { day: '五', count: 0 },
+  { day: '六', count: 0 },
+  { day: '日', count: 0 }
 ])
 
 const maxBarHeight = 120
@@ -94,6 +95,92 @@ function dotStyle(i: number) {
     background: 'radial-gradient(circle, #a084ee 60%, #fff0 100%)',
   }
 }
+
+// 获取当前用户ID
+function getCurrentUserId() {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      return user.id
+    }
+  } catch {}
+  return null
+}
+
+// 获取学习进度统计
+async function fetchProgress() {
+  const userId = getCurrentUserId()
+  if (!userId) return
+  // 获取总进度统计（所有讲座 lectureId=0）
+  try {
+    const res = await request.get(`/answerHistory/student/${userId}/lecture/0/stat`)
+    const data = res.data
+    console.log('学习进度后端返回：', data)
+    if (data && typeof data === 'object') {
+      stats.value.finished = data.answeredCount || 0
+      stats.value.accuracy = data.answeredCount ? Math.round((data.correctCount / data.answeredCount) * 100) : 0
+      // 连续天数后端暂未提供，前端可通过答题记录推算
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+// 获取一周答题趋势和连续天数
+async function fetchWeekTrendAndDays() {
+  const userId = getCurrentUserId()
+  if (!userId) return
+  try {
+    // 获取所有答题记录
+    const res = await request.get(`/answerHistory/list`)
+    const list = res.data
+    if (Array.isArray(list)) {
+      // 只取当前用户的答题
+      const myList = list.filter((item: any) => item.userId === userId)
+      // 统计一周内每天的答题数
+      const now = new Date()
+      const weekArr = Array(7).fill(0)
+      // 记录所有答题日期
+      const dateSet = new Set<string>()
+      myList.forEach((item: any) => {
+        if (!item.answerTime) return
+        const d = new Date(item.answerTime)
+        const diff = Math.floor((now.getTime() - d.getTime()) / (24 * 3600 * 1000))
+        if (diff >= 0 && diff < 7) {
+          // 0为今天，6为6天前
+          const dayIdx = (todayIndex - diff + 7) % 7
+          weekArr[dayIdx]++
+        }
+        // 记录日期字符串
+        const dateStr = d.toISOString().slice(0, 10)
+        dateSet.add(dateStr)
+      })
+      // 填充weekData
+      weekData.value = jsDayToZh.map((day, idx) => ({ day, count: weekArr[idx] }))
+      // 连续天数统计
+      let days = 0
+      for (let i = 0; i < 30; i++) { // 最多查30天
+        const d = new Date()
+        d.setDate(d.getDate() - i)
+        const dateStr = d.toISOString().slice(0, 10)
+        if (dateSet.has(dateStr)) {
+          days++
+        } else {
+          break
+        }
+      }
+      stats.value.days = days
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+onMounted(() => {
+  fetchProgress()
+  fetchWeekTrendAndDays()
+})
 </script>
 
 <style scoped>
