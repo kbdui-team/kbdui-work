@@ -21,9 +21,21 @@ public class ContentInputService {
     @Resource
     private ContentInputDAO contentInputDAO;
 
-    public boolean addContentInput(ContentInputDTO contentInput) {
+    public Integer addContentInput(ContentInputDTO contentInput) {
+        // 将 DTO 转换为实体对象
         ContentInputDO contentInputEntity = convertToEntity(contentInput);
-        return contentInputDAO.insert(contentInputEntity) > 0;
+
+        // 执行插入操作
+        int result = contentInputDAO.insert(contentInputEntity);
+
+        // 如果插入成功，返回生成的 ID
+        if (result > 0) {
+            // 获取插入后的 ID
+            return contentInputEntity.getId();  // 确保 convertToEntity 方法将 ID 赋值给实体对象
+        }
+
+        // 如果插入失败，返回 null 或其他指示失败的值
+        return -1;
     }
 
     public boolean deleteContentInputById(Integer id) {

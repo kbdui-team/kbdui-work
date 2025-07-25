@@ -1,154 +1,199 @@
 <template>
     <div class="upload-component">
-      <div class="content-header">
-        <h1>多模态输入收集</h1>
-        <p>支持从文本、PowerPoint、PDF、音频、等多种格式文件中生成问题</p>
-      </div>
+      <el-loading :loading="uploading" lock text="正在上传和生成题目，请稍候..." background="rgba(255,255,255,0.7)">
+        <div class="content-header">
+          <h1>多模态输入收集</h1>
+          <p>支持从文本、PowerPoint、PDF、音频、等多种格式文件中生成问题</p>
+        </div>
   
-      <div class="upload-sections">
-        <!-- 文本文件上传 -->
-        <el-card class="upload-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="file-icon text-icon"><Document /></el-icon>
-              <span>文本文件上传</span>
-              <el-tag size="small" type="info">支持 .txt, .doc, .docx</el-tag>
-            </div>
+        <!-- 上传前参数选择对话框（所有上传共用） -->
+        <el-dialog v-model="uploadDialogVisible" title="上传设置" width="400px" :close-on-click-modal="false" @open="fetchLectureList">
+          <el-form label-width="90px">
+            <el-form-item label="选择讲座">
+              <el-select
+                v-model="selectedLectureId"
+                placeholder="请选择讲座"
+                filterable
+                allow-create
+                default-first-option
+                @change="onLectureChange"
+                @input="onLectureInput"
+                :loading="lectureListLoading"
+              >
+                <el-option v-for="lecture in lectureList" :key="lecture.id" :label="lecture.title" :value="lecture.id" />
+                <template #empty>
+                  <div style="color:#aaa;padding:8px 0;text-align:center;">暂无讲座，请新建</div>
+                </template>
+              </el-select>
+              <el-input
+                v-if="selectedLectureId==='__new__'"
+                v-model="newLectureTitle"
+                placeholder="输入新讲座名称"
+                style="margin-top:8px;"
+                @input="onLectureInput"
+              />
+              <el-button
+                v-if="selectedLectureId==='__new__' && newLectureTitle.trim()"
+                type="primary"
+                size="small"
+                style="margin-top:8px;"
+                @click="createLecture"
+              >创建讲座</el-button>
+            </el-form-item>
+            <el-form-item label="生成题目数">
+              <el-input-number v-model="questionCount" :min="1" :max="20" />
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <el-button @click="uploadDialogVisible = false">取消</el-button>
+            <el-button type="primary" @click="confirmUpload">确定</el-button>
           </template>
-          <el-upload
-            class="upload-dragger"
-            drag
-            :http-request="customTextUploadRequest"
-            :before-upload="beforeTextUpload"
-            accept=".txt,.doc,.docx"
-            :show-file-list="false"
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将文本文件拖到此处，或<em>点击上传</em>
-            </div>
-          </el-upload>
-          <div class="upload-status" v-if="textStatus">
-            <el-progress :percentage="textProgress" :status="textStatus"></el-progress>
-          </div>
-        </el-card>
+        </el-dialog>
   
-        <!-- PowerPoint文件上传 -->
-        <el-card class="upload-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="file-icon ppt-icon"><Files /></el-icon>
-              <span>PowerPoint文件上传</span>
-              <el-tag size="small" type="warning">支持 .ppt, .pptx</el-tag>
+        <div class="upload-sections">
+          <!-- 文本文件上传 -->
+          <el-card class="upload-card">
+            <template #header>
+              <div class="card-header">
+                <el-icon class="file-icon text-icon"><Document /></el-icon>
+                <span>文本文件上传</span>
+                <el-tag size="small" type="info">支持 .txt, .doc, .docx</el-tag>
+              </div>
+            </template>
+            <el-upload
+              class="upload-dragger"
+              drag
+              :http-request="beforeShowUploadDialog('text')"
+              :before-upload="beforeTextUpload"
+              accept=".txt,.doc,.docx"
+              :show-file-list="false"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将文本文件拖到此处，或<em>点击上传</em>
+              </div>
+            </el-upload>
+            <div class="upload-status" v-if="textStatus">
+              <el-progress :percentage="textProgress" :status="textStatus"></el-progress>
             </div>
-          </template>
-          <el-upload
-            class="upload-dragger"
-            drag
-            action="/api/upload/powerpoint"
-            :before-upload="beforePPTUpload"
-            :on-success="handlePPTSuccess"
-            :on-error="handleUploadError"
-            accept=".ppt,.pptx"
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将PowerPoint文件拖到此处，或<em>点击上传</em>
-            </div>
-          </el-upload>
-          <div class="upload-status" v-if="pptStatus">
-            <el-progress :percentage="pptProgress" :status="pptStatus"></el-progress>
-          </div>
-        </el-card>
+          </el-card>
   
-        <!-- PDF文件上传 -->
-        <el-card class="upload-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="file-icon pdf-icon"><Reading /></el-icon>
-              <span>PDF文件上传</span>
-              <el-tag size="small" type="danger">支持 .pdf</el-tag>
+          <!-- PowerPoint文件上传 -->
+          <el-card class="upload-card">
+            <template #header>
+              <div class="card-header">
+                <el-icon class="file-icon ppt-icon"><Files /></el-icon>
+                <span>PowerPoint文件上传</span>
+                <el-tag size="small" type="warning">支持 .ppt, .pptx</el-tag>
+              </div>
+            </template>
+            <el-upload
+              class="upload-dragger"
+              drag
+              :http-request="beforeShowUploadDialog('ppt')"
+              :before-upload="beforePPTUpload"
+              accept=".ppt,.pptx"
+              :show-file-list="false"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将PowerPoint文件拖到此处，或<em>点击上传</em>
+              </div>
+            </el-upload>
+            <div class="upload-status" v-if="pptStatus">
+              <el-progress :percentage="pptProgress" :status="pptStatus"></el-progress>
             </div>
-          </template>
-          <el-upload
-            class="upload-dragger"
-            drag
-            :http-request="customPDFUploadRequest"
-            :before-upload="beforePDFUpload"
-            accept=".pdf"
-            :show-file-list="false"
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将PDF文件拖到此处，或<em>点击上传</em>
-            </div>
-          </el-upload>
-          <div class="upload-status" v-if="pdfStatus">
-            <el-progress :percentage="pdfProgress" :status="pdfStatus"></el-progress>
-          </div>
-        </el-card>
+          </el-card>
   
-        <!-- 音频文件上传 -->
-        <el-card class="upload-card">
-          <template #header>
-            <div class="card-header">
-              <el-icon class="file-icon audio-icon"><Microphone /></el-icon>
-              <span>音频文件上传</span>
-              <el-tag size="small" type="success">支持 .mp3, .wav, .m4a</el-tag>
+          <!-- PDF文件上传 -->
+          <el-card class="upload-card">
+            <template #header>
+              <div class="card-header">
+                <el-icon class="file-icon pdf-icon"><Reading /></el-icon>
+                <span>PDF文件上传</span>
+                <el-tag size="small" type="danger">支持 .pdf</el-tag>
+              </div>
+            </template>
+            <el-upload
+              class="upload-dragger"
+              drag
+              :http-request="beforeShowUploadDialog('pdf')"
+              :before-upload="beforePDFUpload"
+              accept=".pdf"
+              :show-file-list="false"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将PDF文件拖到此处，或<em>点击上传</em>
+              </div>
+            </el-upload>
+            <div class="upload-status" v-if="pdfStatus">
+              <el-progress :percentage="pdfProgress" :status="pdfStatus"></el-progress>
             </div>
-          </template>
-          <el-upload
-            class="upload-dragger"
-            drag
-            :http-request="customAudioUploadRequest"
-            :before-upload="beforeAudioUpload"
-            accept=".mp3,.wav,.m4a,.aac"
-            :show-file-list="false"
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将音频文件拖到此处，或<em>点击上传</em>
-            </div>
-            <div class="el-upload__tip">
-              音频将自动转换为文字并保存到数据库
-            </div>
-          </el-upload>
-          <div class="upload-status" v-if="audioStatus">
-            <el-progress :percentage="audioProgress" :status="audioStatus"></el-progress>
-          </div>
-        </el-card>
-      </div>
+          </el-card>
   
-      <!-- 处理记录 -->
-      <div class="processing-history">
-        <h3>处理记录</h3>
-        <el-table :data="processingHistory" style="width: 100%">
-          <el-table-column prop="filename" label="文件名" width="200"></el-table-column>
-          <el-table-column prop="type" label="文件类型" width="120">
-            <template #default="scope">
-              <el-tag :type="getTypeColor(scope.row.type)">{{ scope.row.type }}</el-tag>
+          <!-- 音频文件上传 -->
+          <el-card class="upload-card">
+            <template #header>
+              <div class="card-header">
+                <el-icon class="file-icon audio-icon"><Microphone /></el-icon>
+                <span>音频文件上传</span>
+                <el-tag size="small" type="success">支持 .mp3, .wav, .m4a</el-tag>
+              </div>
             </template>
-          </el-table-column>
-          <el-table-column prop="size" label="文件大小" width="120"></el-table-column>
-          <el-table-column prop="status" label="处理状态" width="120">
-            <template #default="scope">
-              <el-tag :type="getStatusColor(scope.row.status)">{{ scope.row.status }}</el-tag>
-            </template>
-          </el-table-column>
-          <!-- <el-table-column prop="extractedText" label="提取文字预览" min-width="200">
-            <template #default="scope">
-              <div class="text-preview">{{ scope.row.extractedText }}</div>
-            </template>
-          </el-table-column> -->
-          <!-- <el-table-column prop="uploadTime" label="上传时间" width="180"></el-table-column> -->
-          <el-table-column label="操作" width="120">
-            <template #default="scope">
-              <el-button size="small" @click="viewDetails(scope.row)">详情</el-button>
-              <el-button size="small" type="danger" @click="deleteRecord(scope.row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </div>
+            <el-upload
+              class="upload-dragger"
+              drag
+              :http-request="beforeShowUploadDialog('audio')"
+              :before-upload="beforeAudioUpload"
+              accept=".mp3,.wav,.m4a,.aac"
+              :show-file-list="false"
+            >
+              <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+              <div class="el-upload__text">
+                将音频文件拖到此处，或<em>点击上传</em>
+              </div>
+              <div class="el-upload__tip">
+                音频将自动转换为文字并保存到数据库
+              </div>
+            </el-upload>
+            <div class="upload-status" v-if="audioStatus">
+              <el-progress :percentage="audioProgress" :status="audioStatus"></el-progress>
+            </div>
+          </el-card>
+        </div>
+  
+        <!-- 处理记录 -->
+        <div class="processing-history">
+          <h3>处理记录</h3>
+          <el-table :data="processingHistory" style="width: 100%">
+            <el-table-column prop="filename" label="文件名" width="200"></el-table-column>
+            <el-table-column prop="type" label="文件类型" width="120">
+              <template #default="scope">
+                <el-tag :type="getTypeColor(scope.row.type)">{{ scope.row.type }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="size" label="文件大小" width="120"></el-table-column>
+            <el-table-column prop="status" label="处理状态" width="120">
+              <template #default="scope">
+                <el-tag :type="getStatusColor(scope.row.status)">{{ scope.row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <!-- <el-table-column prop="extractedText" label="提取文字预览" min-width="200">
+              <template #default="scope">
+                <div class="text-preview">{{ scope.row.extractedText }}</div>
+              </template>
+            </el-table-column> -->
+            <!-- <el-table-column prop="uploadTime" label="上传时间" width="180"></el-table-column> -->
+            <el-table-column label="操作" width="120">
+              <template #default="scope">
+                <el-button size="small" @click="viewDetails(scope.row)">详情</el-button>
+                <el-button size="small" type="danger" @click="deleteRecord(scope.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </el-loading>
     </div>
   </template>
   
@@ -168,6 +213,10 @@
   
   // 定义组件事件
   const emit = defineEmits(['uploadSuccess', 'uploadError'])
+
+  
+  // 获取后端 baseurl
+  const baseurl = inject('baseurl', 'http://localhost:5555') as string
   
   // 上传进度状态
   const textProgress = ref(0)
@@ -196,10 +245,22 @@
 
   const processingHistory = ref<ProcessingRecord[]>([])
 
+  // 新增：讲座列表、选择、题目数
+  const lectureList = ref<any[]>([])
+  const lectureListLoading = ref(false)
+  const selectedLectureId = ref<number|string|null>(null)
+  const newLectureTitle = ref('')
+  const questionCount = ref(5)
+  const uploadDialogVisible = ref(false)
+  let pendingUploadOption: any = null
+  // 新增：记录上传类型
+  const uploadType = ref<'text'|'ppt'|'pdf'|'audio'|null>(null)
+  const uploading = ref(false)
+
   // 页面加载时获取所有内容输入记录
   onMounted(async () => {
     try {
-      const baseurl = inject('baseurl', 'http://localhost:5555') as string
+      // const baseurl = inject('baseurl', 'http://localhost:5555') as string
       const res = await fetch(`${baseurl}/content-input/list`)
       const data = await res.json()
       if (Array.isArray(data)) {
@@ -237,6 +298,7 @@
     } catch (e) {
       // 可选：ElMessage.error('获取内容输入记录失败')
     }
+    fetchLectureList()
   })
   
   // 新增: 题目和选项 DTO 类型
@@ -254,8 +316,24 @@
     isCorrect: boolean
   }
   
-  // 获取后端 baseurl
-  const baseurl = inject('baseurl', 'http://localhost:5555') as string
+  // 工具函数：插入content_input并返回真实id，需传lectureId
+  async function insertContentInput(file: File, lectureId: number) {
+    const res = await fetch(`${baseurl}/content-input/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fileName: file.name,
+        fileSize: file.size,
+        contentType: file.type || 'text',
+        uploadTime: new Date().toISOString(),
+        lectureId: lectureId,
+        filepath: '暂无'
+      })
+    })
+    const data = await res.json()
+    // console.log("insertContentInput", data)
+    return data
+  }
   
   // 文件上传前验证
   const beforeTextUpload = (file: File) => {
@@ -273,118 +351,195 @@
     return true
   }
 
-  // 自定义上传方法，使用 fetch（无超时限制）
-  const customTextUploadRequest = async (option: UploadRequestOptions) => {
-    const file = option.file as File
-    // TODO: 这里可根据实际业务传入或选择 lectureId 和 contentInputId
-    // 目前写死为 1，可根据实际需求传参或弹窗选择
-    const lectureId: number = 1 // 必须为 number，不能为 undefined/null
-    // 生成 10000~99999 的 5 位随机数作为 contentInputId
-    const contentInputId: number = Math.floor(10000 + Math.random() * 90000)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('count', '5')
-      formData.append('model', 'v3')
-      // 超时控制：10分钟
-      const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
-        return Promise.race([
-          fetch(url, opts),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
-        ])
+  // 修改上传前弹窗方法，支持多类型
+  const beforeShowUploadDialog = (type: 'text'|'ppt'|'pdf'|'audio') => (option: any) => {
+    uploadType.value = type
+    pendingUploadOption = option
+    uploadDialogVisible.value = true
+    return false // 阻止自动上传
+  }
+
+  // 确认上传时分发到不同上传方法
+  const confirmUpload = () => {
+    if (!selectedLectureId.value || selectedLectureId.value === '__new__') {
+      ElMessage.error('请选择讲座')
+      return
+    }
+    uploadDialogVisible.value = false
+    const lectureIdNum = typeof selectedLectureId.value === 'string' ? Number(selectedLectureId.value) : selectedLectureId.value
+    if (pendingUploadOption && uploadType.value) {
+      if (uploadType.value === 'text') {
+        customTextUploadRequestWithParams(pendingUploadOption, lectureIdNum, questionCount.value)
+      } else if (uploadType.value === 'ppt') {
+        customPPTUploadRequestWithParams(pendingUploadOption, lectureIdNum, questionCount.value)
+      } else if (uploadType.value === 'pdf') {
+        customPDFUploadRequestWithParams(pendingUploadOption, lectureIdNum, questionCount.value)
+      } else if (uploadType.value === 'audio') {
+        customAudioUploadRequestWithParams(pendingUploadOption, lectureIdNum, questionCount.value)
       }
-      let response: Response
-      try {
-        response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions`, {
-          method: 'POST',
-          body: formData
-        }) as Response
-      } catch {
-        ElMessage.error('题目生成请求超时，已判定为失败')
-        addProcessingRecord(file, '文本文件', '请求超时', '失败')
-        if (option.onError) {
-          option.onError({
-            name: 'UploadAjaxError',
-            status: 408,
-            method: 'POST',
-            url: `${baseurl}/deepseek/generate-questions`,
-            message: '请求超时'
-          })
-        }
+      pendingUploadOption = null
+      uploadType.value = null
+    }
+  }
+
+  // 包装各自上传方法
+  const customTextUploadRequestWithParams = (option: any, lectureId: number, count: number) => {
+    customTextUploadRequest(option, lectureId, count)
+  }
+  const customPPTUploadRequestWithParams = (option: any, lectureId: number, count: number) => {
+    customPPTUploadRequest(option, lectureId, count)
+  }
+  const customPDFUploadRequestWithParams = (option: any, lectureId: number, count: number) => {
+    customPDFUploadRequest(option, lectureId, count)
+  }
+  const customAudioUploadRequestWithParams = (option: any, lectureId: number, count: number) => {
+    customAudioUploadRequest(option, lectureId, count)
+  }
+
+  // 自定义上传方法，使用 fetch（无超时限制）
+  const customTextUploadRequest = async (option: UploadRequestOptions, lectureId?: number, count?: number) => {
+    uploading.value = true
+    try {
+      const file = option.file as File
+      const realLectureId = lectureId || 1
+      // 1. 先插入 content_input 记录，拿到真实id
+      const contentInputId = await insertContentInput(file, realLectureId)
+      if (!contentInputId) {
+        ElMessage.error('content_input表插入失败')
+        if (option.onError) option.onError({
+          message: 'content_input插入失败', name: '', status: 0, method: '', url: ''
+        })
         return
       }
-      const result = await response.json()
-      if ((result.code === 0 || result.code === 200) && result.data) {
-        ElMessage.success('题目生成成功！')
-        const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
-        addProcessingRecord(file, '文本文件', preview, '已完成')
-        // 新增: 循环存储题目和选项
-        if (Array.isArray(result.data)) {
-          for (const q of result.data) {
-            // 1. 存储题目
-            const questionDTO: QuestionDTO = {
-              questionText: q.question,
-              lectureId,
-              contentInputId,
-              questionType:"单选题"
-              
-            }
-            const questionRes = await fetch(`${baseurl}/question/add`, {
+      // 2. 检查/插入 lecture（如无则新建，示例用lectureId）
+      let realLectureIdToUse: number | null = realLectureId // 使用传入的lectureId
+      if (!realLectureIdToUse) {
+        // fallback: 文件名查找
+        try {
+          const lectureListRes = await fetch(`${baseurl}/lecture/list`)
+          const lectureList = await lectureListRes.json()
+          console.log("lectureList", lectureList)
+          const existLecture = Array.isArray(lectureList) ? lectureList.find((l: any) => l.title === file.name) : null
+          if (existLecture) {
+            realLectureIdToUse = existLecture.id
+          } else {
+            // 新建lecture
+            const lectureRes = await fetch(`${baseurl}/lecture/add`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(questionDTO)
+              body: JSON.stringify({ title: file.name, description: '由文件上传自动创建', status: 'active' })
             })
-            
-            console.log("dkasjhdk",questionRes)
-            const questionSaved = await questionRes.json()
-            console.log(questionSaved)
-            const questionId = questionSaved.id
-            // 2. 存储选项（每个选项单独POST，四个选项同属一个questionId）
-            if (Array.isArray(q.options)) {
-              for (let i = 0; i < q.options.length; i++) {
-                const optionDTO: QuestionOptionsDTO = {
-                  questionId: questionId, // 确保等于刚刚保存问题的id
-                  optionText: q.options[i],
-                  optionOrder: String.fromCharCode(65 + i), // A/B/C/D
-                  isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+            const lectureSaved = await lectureRes.json()
+            realLectureIdToUse = lectureSaved.id
+          }
+        } catch {
+          ElMessage.error('lecture表插入失败')
+          if (option.onError) option.onError({ message: 'lecture插入失败', name: '', status: 0, method: '', url: '' })
+          return
+        }
+      }
+      // 3. 上传文件并生成题目
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('count', String(count || 5))
+        formData.append('model', 'v3')
+        let response: Response
+        const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
+          return Promise.race([
+            fetch(url, opts),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
+          ])
+        }
+        try {
+          response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions`, {
+            method: 'POST',
+            body: formData
+          }) as Response
+        } catch {
+          ElMessage.error('题目生成请求超时，已判定为失败')
+          addProcessingRecord(file, '文本文件', '请求超时', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 408,
+              method: 'POST',
+              url: `${baseurl}/deepseek/generate-questions`,
+              message: '请求超时'
+            })
+          }
+          return
+        }
+        const result = await response.json()
+        if ((result.code === 0 || result.code === 200) && result.data) {
+          ElMessage.success('题目生成成功！')
+          const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
+          addProcessingRecord(file, '文本文件', preview, '已完成')
+          // 4. 循环存储题目和选项
+          if (Array.isArray(result.data)) {
+            for (const q of result.data) {
+              if(realLectureIdToUse === null) realLectureIdToUse = 1;
+              // 1. 存储题目
+              const questionDTO: QuestionDTO = {
+                questionText: q.question,
+                lectureId: realLectureIdToUse,
+                contentInputId: typeof contentInputId === 'number' ? contentInputId : undefined,
+                questionType: '单选题'
+              }
+              const questionRes = await fetch(`${baseurl}/question/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(questionDTO)
+              })
+              const questionSaved = await questionRes.json()
+              const questionId = questionSaved.id
+              // 2. 存储选项（每个选项单独POST，四个选项同属一个questionId）
+              if (Array.isArray(q.options)) {
+                for (let i = 0; i < q.options.length; i++) {
+                  const optionDTO: QuestionOptionsDTO = {
+                    questionId: questionId,
+                    optionText: q.options[i],
+                    optionOrder: String.fromCharCode(65 + i),
+                    isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+                  }
+                  await fetch(`${baseurl}/question-options/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(optionDTO)
+                  })
                 }
-                console.log("dsaiwe",optionDTO)
-                // 每个选项单独POST，获得自己的id
-                await fetch(`${baseurl}/question-options/add`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(optionDTO)
-                })
               }
             }
           }
+          if (option.onSuccess) { option.onSuccess(result) }
+        } else {
+          ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
+          addProcessingRecord(file, '文本文件', result.message || '未知错误', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 500,
+              method: 'POST',
+              url: `${baseurl}/deepseek/generate-questions`,
+              message: result.message || '题目生成失败'
+            })
+          }
         }
-        if (option.onSuccess) { option.onSuccess(result) }
-      } else {
-        ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
-        addProcessingRecord(file, '文本文件', result.message || '未知错误', '失败')
+      } catch {
+        ElMessage.error('题目生成请求失败')
+        addProcessingRecord(file, '文本文件', '上传失败', '失败')
         if (option.onError) {
           option.onError({
             name: 'UploadAjaxError',
             status: 500,
             method: 'POST',
             url: `${baseurl}/deepseek/generate-questions`,
-            message: result.message || '题目生成失败'
+            message: '题目生成请求失败'
           })
         }
       }
-    } catch {
-      ElMessage.error('题目生成请求失败')
-      addProcessingRecord(file, '文本文件', '上传失败', '失败')
-      if (option.onError) {
-        option.onError({
-          name: 'UploadAjaxError',
-          status: 500,
-          method: 'POST',
-          url: `${baseurl}/deepseek/generate-questions`,
-          message: '题目生成请求失败'
-        })
-      }
+    } finally {
+      uploading.value = false
     }
   }
 
@@ -526,16 +681,140 @@
   }
 
   // PDF自定义上传方法，生成题目并存储到数据库
-  const customPDFUploadRequest = async (option: UploadRequestOptions) => {
+  const customPDFUploadRequest = async (option: UploadRequestOptions, lectureId?: number, count?: number) => {
+    uploading.value = true
+    try {
+      const file = option.file as File
+      const realLectureId = lectureId || 1
+      // 1. 先插入 content_input 记录，拿到真实id
+      const contentInputId = await insertContentInput(file, realLectureId)
+      console.log("contentInputId", contentInputId)
+      if (!contentInputId) {
+        ElMessage.error('content_input表插入失败')
+        if (option.onError) option.onError({ message: 'content_input插入失败', name: '', status: 0, method: '', url: '' })
+        return
+      }
+      try {
+        const formData = new FormData()
+        formData.append('file', file)
+        formData.append('count', String(count || 5))
+        formData.append('model', 'v3')
+        // 超时控制：10分钟
+        const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
+          return Promise.race([
+            fetch(url, opts),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
+          ])
+        }
+        let response: Response
+        try {
+          response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions`, {
+            method: 'POST',
+            body: formData
+          }) as Response
+        } catch {
+          ElMessage.error('题目生成请求超时，已判定为失败')
+          addProcessingRecord(file, 'PDF文件', '请求超时', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 408,
+              method: 'POST',
+              url: `${baseurl}/deepseek/generate-questions`,
+              message: '请求超时'
+            })
+          }
+          return
+        }
+        const result = await response.json()
+        if ((result.code === 0 || result.code === 200) && result.data) {
+          ElMessage.success('题目生成成功！')
+          const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
+          addProcessingRecord(file, 'PDF文件', preview, '已完成')
+          // 循环存储题目和选项
+          if (Array.isArray(result.data)) {
+            for (const q of result.data) {
+              const questionDTO: QuestionDTO = {
+                questionText: q.question,
+                lectureId: realLectureId,
+                contentInputId: typeof contentInputId === 'number' ? contentInputId : undefined,
+                questionType: "单选题"
+              }
+              const questionRes = await fetch(`${baseurl}/question/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(questionDTO)
+              })
+              const questionSaved = await questionRes.json()
+              const questionId = questionSaved.id
+              if (Array.isArray(q.options)) {
+                for (let i = 0; i < q.options.length; i++) {
+                  const optionDTO: QuestionOptionsDTO = {
+                    questionId: questionId,
+                    optionText: q.options[i],
+                    optionOrder: String.fromCharCode(65 + i),
+                    isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+                  }
+                  await fetch(`${baseurl}/question-options/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(optionDTO)
+                  })
+                }
+              }
+            }
+          }
+          if (option.onSuccess) { option.onSuccess(result) }
+        } else {
+          ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
+          addProcessingRecord(file, 'PDF文件', result.message || '未知错误', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 500,
+              method: 'POST',
+              url: `${baseurl}/deepseek/generate-questions`,
+              message: result.message || '题目生成失败'
+            })
+          }
+        }
+      } catch {
+        ElMessage.error('题目生成请求失败')
+        addProcessingRecord(file, 'PDF文件', '上传失败', '失败')
+        if (option.onError) {
+          option.onError({
+            name: 'UploadAjaxError',
+            status: 500,
+            method: 'POST',
+            url: `${baseurl}/deepseek/generate-questions`,
+            message: '题目生成请求失败'
+          })
+        }
+      }
+    } finally {
+      uploading.value = false
+    }
+  }
+
+  // 自定义PPT上传方法，生成题目并存储到数据库
+const customPPTUploadRequest = async (option: UploadRequestOptions, lectureId?: number, count?: number) => {
+  uploading.value = true
+  try {
     const file = option.file as File
-    // TODO: 这里可根据实际业务传入或选择 lectureId 和 contentInputId
-    const lectureId: number = 1
-    const contentInputId: number = Math.floor(10000 + Math.random() * 90000)
+    const realLectureId = lectureId || 1
+    const contentInputId = await insertContentInput(file, realLectureId)
+    if (!contentInputId) {
+      ElMessage.error('content_input表插入失败')
+      if (option.onError) option.onError({ message: 'content_input插入失败', name: '', status: 0, method: '', url: '' })
+      return
+    }
+    
     try {
       const formData = new FormData()
       formData.append('file', file)
-      formData.append('count', '5')
-      formData.append('model', 'v3')
+      formData.append('count', String(count || 5))
+      formData.append('model', 'v3') // 选择模型版本或其他参数
+
       // 超时控制：10分钟
       const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
         return Promise.race([
@@ -543,15 +822,17 @@
           new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
         ])
       }
+
       let response: Response
       try {
+        // 使用超时控制进行请求
         response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions`, {
           method: 'POST',
           body: formData
         }) as Response
       } catch {
         ElMessage.error('题目生成请求超时，已判定为失败')
-        addProcessingRecord(file, 'PDF文件', '请求超时', '失败')
+        addProcessingRecord(file, 'PowerPoint', '请求超时', '失败')
         if (option.onError) {
           option.onError({
             name: 'UploadAjaxError',
@@ -563,18 +844,20 @@
         }
         return
       }
+
       const result = await response.json()
       if ((result.code === 0 || result.code === 200) && result.data) {
         ElMessage.success('题目生成成功！')
         const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
-        addProcessingRecord(file, 'PDF文件', preview, '已完成')
+        addProcessingRecord(file, 'PowerPoint', preview, '已完成')
+
         // 循环存储题目和选项
         if (Array.isArray(result.data)) {
           for (const q of result.data) {
             const questionDTO: QuestionDTO = {
               questionText: q.question,
-              lectureId,
-              contentInputId,
+              lectureId: realLectureId,
+              contentInputId: typeof contentInputId === 'number' ? contentInputId : undefined,
               questionType: "单选题"
             }
             const questionRes = await fetch(`${baseurl}/question/add`, {
@@ -584,6 +867,7 @@
             })
             const questionSaved = await questionRes.json()
             const questionId = questionSaved.id
+
             if (Array.isArray(q.options)) {
               for (let i = 0; i < q.options.length; i++) {
                 const optionDTO: QuestionOptionsDTO = {
@@ -604,7 +888,7 @@
         if (option.onSuccess) { option.onSuccess(result) }
       } else {
         ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
-        addProcessingRecord(file, 'PDF文件', result.message || '未知错误', '失败')
+        addProcessingRecord(file, 'PowerPoint', result.message || '未知错误', '失败')
         if (option.onError) {
           option.onError({
             name: 'UploadAjaxError',
@@ -617,7 +901,7 @@
       }
     } catch {
       ElMessage.error('题目生成请求失败')
-      addProcessingRecord(file, 'PDF文件', '上传失败', '失败')
+      addProcessingRecord(file, 'PowerPoint', '上传失败', '失败')
       if (option.onError) {
         option.onError({
           name: 'UploadAjaxError',
@@ -628,110 +912,175 @@
         })
       }
     }
+  } finally {
+    uploading.value = false
   }
+}
+
 
   // 音频自定义上传方法，生成题目并存储到数据库
-  const customAudioUploadRequest = async (option: UploadRequestOptions) => {
-    const file = option.file as File
-    // TODO: 这里可根据实际业务传入或选择 lectureId 和 contentInputId
-    const lectureId: number = 1
-    const contentInputId: number = Math.floor(10000 + Math.random() * 90000)
+  const customAudioUploadRequest = async (option: UploadRequestOptions, lectureId?: number, count?: number) => {
+    uploading.value = true
     try {
-      const formData = new FormData()
-      formData.append('audioFile', file)
-      formData.append('count', '5')
-      formData.append('model', 'v3')
-      // 超时控制：10分钟
-      const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
-        return Promise.race([
-          fetch(url, opts),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
-        ])
-      }
-      let response: Response
-      try {
-        response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions-from-audio`, {
-          method: 'POST',
-          body: formData
-        }) as Response
-      } catch {
-        ElMessage.error('题目生成请求超时，已判定为失败')
-        addProcessingRecord(file, '音频文件', '请求超时', '失败')
-        if (option.onError) {
-          option.onError({
-            name: 'UploadAjaxError',
-            status: 408,
-            method: 'POST',
-            url: `${baseurl}/deepseek/generate-questions-from-audio`,
-            message: '请求超时'
-          })
-        }
+      const file = option.file as File
+      const realLectureId = lectureId || 1
+      const contentInputId = await insertContentInput(file, realLectureId)
+      if (!contentInputId) {
+        ElMessage.error('content_input表插入失败')
+        if (option.onError) option.onError({ message: 'content_input插入失败', name: '', status: 0, method: '', url: '' })
         return
       }
-      const result = await response.json()
-      if ((result.code === 0 || result.code === 200) && result.data) {
-        ElMessage.success('题目生成成功！')
-        const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
-        addProcessingRecord(file, '音频文件', preview, '已完成')
-        // 循环存储题目和选项
-        if (Array.isArray(result.data)) {
-          for (const q of result.data) {
-            const questionDTO: QuestionDTO = {
-              questionText: q.question,
-              lectureId,
-              contentInputId,
-              questionType: "单选题"
-            }
-            const questionRes = await fetch(`${baseurl}/question/add`, {
+      try {
+        const formData = new FormData()
+        formData.append('audioFile', file)
+        formData.append('count', String(count || 5))
+        formData.append('model', 'v3')
+        // 超时控制：10分钟
+        const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 600000) => {
+          return Promise.race([
+            fetch(url, opts),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('请求超时，请稍后重试')), timeout))
+          ])
+        }
+        let response: Response
+        try {
+          response = await fetchWithTimeout(`${baseurl}/deepseek/generate-questions-from-audio`, {
+            method: 'POST',
+            body: formData
+          }) as Response
+        } catch {
+          ElMessage.error('题目生成请求超时，已判定为失败')
+          addProcessingRecord(file, '音频文件', '请求超时', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 408,
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(questionDTO)
+              url: `${baseurl}/deepseek/generate-questions-from-audio`,
+              message: '请求超时'
             })
-            const questionSaved = await questionRes.json()
-            const questionId = questionSaved.id
-            if (Array.isArray(q.options)) {
-              for (let i = 0; i < q.options.length; i++) {
-                const optionDTO: QuestionOptionsDTO = {
-                  questionId: questionId,
-                  optionText: q.options[i],
-                  optionOrder: String.fromCharCode(65 + i),
-                  isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+          }
+          return
+        }
+        const result = await response.json()
+        if ((result.code === 0 || result.code === 200) && result.data) {
+          ElMessage.success('题目生成成功！')
+          const preview = JSON.stringify(result.data).slice(0, 100) + (JSON.stringify(result.data).length > 100 ? '...' : '')
+          addProcessingRecord(file, '音频文件', preview, '已完成')
+          // 循环存储题目和选项
+          if (Array.isArray(result.data)) {
+            for (const q of result.data) {
+              const questionDTO: QuestionDTO = {
+                questionText: q.question,
+                lectureId: realLectureId,
+                contentInputId: typeof contentInputId === 'number' ? contentInputId : undefined,
+                questionType: "单选题"
+              }
+              const questionRes = await fetch(`${baseurl}/question/add`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(questionDTO)
+              })
+              const questionSaved = await questionRes.json()
+              const questionId = questionSaved.id
+              if (Array.isArray(q.options)) {
+                for (let i = 0; i < q.options.length; i++) {
+                  const optionDTO: QuestionOptionsDTO = {
+                    questionId: questionId,
+                    optionText: q.options[i],
+                    optionOrder: String.fromCharCode(65 + i),
+                    isCorrect: (q.answer && q.answer.toUpperCase() === String.fromCharCode(65 + i))
+                  }
+                  await fetch(`${baseurl}/question-options/add`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(optionDTO)
+                  })
                 }
-                await fetch(`${baseurl}/question-options/add`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(optionDTO)
-                })
               }
             }
           }
+        } else {
+          ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
+          addProcessingRecord(file, '音频文件', result.message || '未知错误', '失败')
+          if (option.onError) {
+            option.onError({
+              name: 'UploadAjaxError',
+              status: 500,
+              method: 'POST',
+              url: `${baseurl}/deepseek/generate-questions-from-audio`,
+              message: result.message || '题目生成失败'
+            })
+          }
         }
-      } else {
-        ElMessage.error('题目生成失败: ' + (result.message || '未知错误'))
-        addProcessingRecord(file, '音频文件', result.message || '未知错误', '失败')
+      } catch {
+        ElMessage.error('题目生成请求失败')
+        addProcessingRecord(file, '音频文件', '上传失败', '失败')
         if (option.onError) {
           option.onError({
             name: 'UploadAjaxError',
             status: 500,
             method: 'POST',
             url: `${baseurl}/deepseek/generate-questions-from-audio`,
-            message: result.message || '题目生成失败'
+            message: '题目生成请求失败'
           })
         }
       }
-    } catch {
-      ElMessage.error('题目生成请求失败')
-      addProcessingRecord(file, '音频文件', '上传失败', '失败')
-      if (option.onError) {
-        option.onError({
-          name: 'UploadAjaxError',
-          status: 500,
-          method: 'POST',
-          url: `${baseurl}/deepseek/generate-questions-from-audio`,
-          message: '题目生成请求失败'
-        })
-      }
+    } finally {
+      uploading.value = false
     }
+  }
+
+  // 获取讲座列表
+  const fetchLectureList = async () => {
+    lectureListLoading.value = true
+    try {
+      // const baseurl = inject('baseurl', 'http://localhost:5555') as string
+      const res = await fetch(`${baseurl}/lecture/list`)
+      const data = await res.json()
+      console.log("lectureList", lectureList)
+      if (Array.isArray(data) && data.length > 0) {
+        lectureList.value = data
+      } else {
+        lectureList.value = []
+      }
+    } catch {
+      lectureList.value = []
+    } finally {
+      lectureListLoading.value = false
+    }
+  }
+
+  const onLectureInput = (val: string) => {
+    if (val && !lectureList.value.some(l => l.title === val)) {
+      selectedLectureId.value = '__new__'
+      newLectureTitle.value = val
+    }
+  }
+
+  const onLectureChange = (val: any) => {
+    if (val === '__new__') {
+      // 保持newLectureTitle
+    } else {
+      newLectureTitle.value = ''
+    }
+  }
+
+  const createLecture = async () => {
+    if (!newLectureTitle.value) return
+    // const baseurl = inject('baseurl', 'http://localhost:5555') as string
+    const res = await fetch(`${baseurl}/lecture/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: newLectureTitle.value, description: '用户自助新建', status: 'active' })
+    })
+    const data = await res.json()
+    await fetchLectureList()
+    // 自动选中新建的lecture
+    if (data && data.id) {
+      selectedLectureId.value = data.id
+    }
+    newLectureTitle.value = ''
   }
   </script>
   
@@ -740,6 +1089,7 @@
     padding: 20px;
     background: #f8f9fa;
     border-radius: 8px;
+    position: relative;
   }
   
   .content-header {

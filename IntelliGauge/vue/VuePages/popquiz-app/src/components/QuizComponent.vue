@@ -27,6 +27,9 @@
                 <span class="question-count">
                   <el-icon><Document /></el-icon>
                   {{ getLectureQuestionCount(lecture.id) }} 题
+                  <span v-if="getLectureQuestionCount(lecture.id)">
+                    （{{ getLectureAnsweredCount(lecture.id) }}/{{ getLectureQuestionCount(lecture.id) }}）
+                  </span>
                 </span>
                 <span class="teacher-info">
                   <el-icon><User /></el-icon>
@@ -155,10 +158,18 @@
             <p>正在加载题目...</p>
           </div>
           <div v-else class="no-questions">
-            <el-icon class="empty-icon"><DocumentDelete /></el-icon>
-            <h3>暂无题目</h3>
-            <p>该课程暂未添加题目，请联系管理员或选择其他课程</p>
-            <el-button type="primary" @click="backToLectureSelection">重新选择课程</el-button>
+            <el-icon class="empty-icon"><DocumentChecked /></el-icon>
+            <h3>你已完成本讲座所有题目！</h3>
+            <p>本讲座的所有题目你都已作答，快去挑战其他讲座或复习错题吧！</p>
+            <div v-if="lectureStat">
+              <p>总题数：{{ lectureStat.totalCount }}</p>
+              <p>
+                已完成：{{ lectureStat.answeredCount }}
+                <span v-if="lectureStat.totalCount">（{{ lectureStat.answeredCount }}/{{ lectureStat.totalCount }}）</span>
+              </p>
+              <p>正确率：{{ lectureStat.answeredCount ? Math.round((lectureStat.correctCount / lectureStat.answeredCount) * 100) : 0 }}%</p>
+            </div>
+            <el-button type="primary" @click="backToLectureSelection">选择其他讲座</el-button>
           </div>
         </div>
       </div>
@@ -198,10 +209,10 @@
           </div>
 
           <div class="results-actions">
-            <el-button type="primary" @click="restartQuiz">重新测试</el-button>
-            <el-button @click="backToLectureSelection">选择其他课程</el-button>
-            <el-button @click="$emit('backToHome')">返回首页</el-button>
-            <el-button type="success" @click="shareResults">分享结果</el-button>
+            <!-- <el-button type="primary" @click="restartQuiz">重新测试</el-button>
+            <el-button @click="backToLectureSelection">选择其他课程</el-button> -->
+            <el-button type="success" @click="backToLectureSelection">返回首页</el-button>
+            <!-- <el-button type="success" @click="shareResults">分享结果</el-button> -->
           </div>
         </div>
       </div>
@@ -209,22 +220,68 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted, inject } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, inject, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { 
   Clock, Trophy, Check, Close, InfoFilled, Medal, Star, 
-  Document, User, Back, Loading, DocumentDelete
+  Document, User, Back, Loading, DocumentDelete, DocumentChecked
 } from '@element-plus/icons-vue'
 import axios from 'axios'
+import type { Ref } from 'vue'
+
+// 讲座类型声明
+interface Lecture {
+  id: number
+  title: string
+  description?: string
+  status?: string
+  teacherId?: number | string
+}
 
 // 定义组件事件
 const emit = defineEmits(['backToHome', 'quizComplete'])
 
 // 课程相关数据
-const selectedLecture = ref(null)
-const lectureList = ref([])
+const selectedLecture = ref<Lecture | null>(null)
+const lectureList = ref<Lecture[]>([])
 const loadingLectures = ref(false)
 const questionCountMap = ref(new Map()) // 存储每个课程的题目数量
+
+// 新增：每个讲座的已完成题数统计
+const lectureAnsweredMap = ref(new Map())
+
+// 获取每个讲座的已完成题数
+const fetchLectureAnsweredCounts = async () => {
+  try {
+    const userId = getCurrentUserId()
+    if (!userId) return
+    const [answerRes, questionRes] = await Promise.all([
+      axios.get(`${baseurl}/answerHistory/list`),
+      axios.get(`${baseurl}/question/list`)
+    ])
+    const answerList = Array.isArray(answerRes.data) ? answerRes.data : []
+    const questionList = Array.isArray(questionRes.data) ? questionRes.data : []
+    // 构建题目id到lectureId的映射
+    const questionIdToLectureId = new Map()
+    questionList.forEach((q: any) => {
+      const qLectureId = q.lectureId || q.lecture_id
+      if (qLectureId && q.id) {
+        questionIdToLectureId.set(q.id, qLectureId)
+      }
+    })
+    // 统计每个lecture下已完成题数
+    const map = new Map()
+    answerList.forEach((item: any) => {
+      if (item.userId === userId && item.questionId) {
+        const lectureId = questionIdToLectureId.get(item.questionId)
+        if (lectureId) {
+          map.set(lectureId, (map.get(lectureId) || 0) + 1)
+        }
+      }
+    })
+    lectureAnsweredMap.value = map
+  } catch {}
+}
 
 // 答题状态数据
 const currentQuestionIndex = ref(0)
@@ -259,6 +316,7 @@ const fetchLectures = async () => {
       lectureList.value = response.data
       // 获取每个课程的题目数量
       await fetchQuestionCounts()
+      await fetchLectureAnsweredCounts()
     } else {
       ElMessage.error('获取课程列表失败')
       lectureList.value = []
@@ -296,6 +354,28 @@ const getLectureQuestionCount = (lectureId) => {
   return questionCountMap.value.get(lectureId) || 0
 }
 
+// 获取指定讲座的已完成题数
+const getLectureAnsweredCount = (lectureId: number) => {
+  return lectureAnsweredMap.value.get(lectureId) || 0
+}
+
+const lectureStat = ref<{ totalCount: number, answeredCount: number, correctCount: number } | null>(null)
+
+// 获取当前讲座统计
+async function fetchLectureStat(lectureId: number) {
+  const userId = getCurrentUserId()
+  if (!userId || !lectureId) {
+    lectureStat.value = null
+    return
+  }
+  try {
+    const res = await axios.get(`${baseurl}/answerHistory/student/${userId}/lecture/${lectureId}/stat`)
+    lectureStat.value = res.data || { totalCount: 0, answeredCount: 0, correctCount: 0 }
+  } catch {
+    lectureStat.value = { totalCount: 0, answeredCount: 0, correctCount: 0 }
+  }
+}
+
 // 选择课程
 const selectLecture = (lecture) => {
   if (lecture.status !== 'active') {
@@ -306,6 +386,7 @@ const selectLecture = (lecture) => {
   selectedLecture.value = lecture
   currentQuiz.title = lecture.title
   currentQuiz.category = lecture.description
+  lectureStat.value = null // 切换讲座时重置
   
   // 获取该课程的题目
   fetchQuestionsByLecture(lecture.id)
@@ -388,6 +469,8 @@ const fetchQuestionsByLecture = async (lectureId) => {
     if (filteredQuestions.length === 0) {
       ElMessage.info('该课程的题目您都已经答过了')
       questions.value = []
+      // 新增：获取统计
+      await fetchLectureStat(lectureId)
       return
     }
 
