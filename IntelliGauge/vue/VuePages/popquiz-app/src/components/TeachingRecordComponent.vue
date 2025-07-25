@@ -77,45 +77,14 @@
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入讲座标题" />
         </el-form-item>
-        <el-form-item label="讲师" prop="speaker">
-          <el-input v-model="form.speaker" placeholder="请输入讲师姓名" />
-        </el-form-item>
-        <el-form-item label="开始时间" prop="startTime">
-          <el-date-picker
-            v-model="form.startTime"
-            type="datetime"
-            placeholder="选择开始时间"
-            format="YYYY-MM-DD HH:mm"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="结束时间" prop="endTime">
-          <el-date-picker
-            v-model="form.endTime"
-            type="datetime"
-            placeholder="选择结束时间"
-            format="YYYY-MM-DD HH:mm"
-            value-format="YYYY-MM-DD HH:mm:ss"
-            style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="地点" prop="location">
-          <el-input v-model="form.location" placeholder="请输入讲座地点" />
-        </el-form-item>
-        <el-form-item label="容量" prop="capacity">
-          <el-input-number v-model="form.capacity" :min="1" :max="500" style="width: 100%" />
+        <el-form-item label="描述">
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="讲座描述(可选)" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-select v-model="form.status" style="width: 100%">
-            <el-option label="已安排" value="SCHEDULED" />
-            <el-option label="进行中" value="ONGOING" />
-            <el-option label="已完成" value="COMPLETED" />
-            <el-option label="已取消" value="CANCELLED" />
+            <el-option label="可用" value="active" />
+            <el-option label="暂停" value="inactive" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="讲座描述(可选)" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -146,18 +115,15 @@ const pageSize = ref(10)
 const searchKeyword = ref('')
 const statusFilter = ref('')
 const lectures = ref([])
+const teacherList = ref([])
 
 // 表单数据
 const form = reactive({
   id: null,
   title: '',
-  speaker: '',
-  startTime: '',
-  endTime: '',
-  location: '',
-  capacity: 50,
-  status: 'SCHEDULED',
-  description: ''
+  description: '',
+  status: 'active',
+  teacherId: null
 })
 
 const formRef = ref()
@@ -165,11 +131,6 @@ const formRef = ref()
 // 验证规则
 const rules = {
   title: [{ required: true, message: '请输入讲座标题', trigger: 'blur' }],
-  speaker: [{ required: true, message: '请输入讲师姓名', trigger: 'blur' }],
-  startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
-  endTime: [{ required: true, message: '请选择结束时间', trigger: 'change' }],
-  location: [{ required: true, message: '请输入讲座地点', trigger: 'blur' }],
-  capacity: [{ required: true, message: '请设置容量', trigger: 'blur' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
@@ -260,12 +221,25 @@ const handleSearch = () => {
   currentPage.value = 1
 }
 
+// 自动赋值teacherId为当前登录用户id
+function setTeacherIdFromLogin() {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      // console.log("user", user)
+      if (user && user.id) form.teacherId = user.id
+    }
+  } catch {}
+}
+
 const openForm = (item = null) => {
   isEdit.value = !!item
   if (item) {
     Object.assign(form, item)
   } else {
     resetForm()
+    setTeacherIdFromLogin()
   }
   dialogVisible.value = true
 }
@@ -274,13 +248,9 @@ const resetForm = () => {
   Object.assign(form, {
     id: null,
     title: '',
-    speaker: '',
-    startTime: '',
-    endTime: '',
-    location: '',
-    capacity: 50,
-    status: 'SCHEDULED',
-    description: ''
+    description: '',
+    status: 'active',
+    teacherId: null
   })
   formRef.value?.clearValidate()
 }
@@ -294,6 +264,7 @@ const submitForm = async () => {
       await api.updateLecture(form)
       ElMessage.success('更新成功')
     } else {
+      console.log("form", form)
       await api.addLecture(form)
       ElMessage.success('创建成功')
     }
@@ -349,8 +320,20 @@ const getStatusText = (status) => {
   return map[status] || status
 }
 
+// 获取教师列表
+const fetchTeacherList = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/user/list`)
+    const data = await res.json()
+    teacherList.value = Array.isArray(data) ? data.filter(u => u.userType === 'teacher') : []
+  } catch {}
+}
+
 // 初始化
-onMounted(fetchData)
+onMounted(() => {
+  fetchData()
+  fetchTeacherList()
+})
 </script>
 
 <style scoped>
