@@ -10,10 +10,10 @@
       <!-- 页面标题 -->
       <div class="header">
         <div class="title-section">
-          <div class="icon">👥</div>
+          <div class="icon">👨‍🎓</div>
           <div class="title-text">
-            <h1>讲座参与者管理</h1>
-            <p>管理讲座的参与者信息，包括教师和学生</p>
+            <h1>讲座学生管理</h1>
+            <p>按讲座分类管理学生参与信息</p>
           </div>
         </div>
       </div>
@@ -23,40 +23,40 @@
         <div class="stat-card">
           <div class="stat-content">
             <div class="stat-text">
-              <p class="stat-label">总参与者</p>
-              <p class="stat-value">{{ totalRecords }}</p>
+              <p class="stat-label">总学生数</p>
+              <p class="stat-value">{{ totalStudents }}</p>
             </div>
-            <div class="stat-icon blue">👥</div>
+            <div class="stat-icon blue">👨‍🎓</div>
           </div>
         </div>
         
         <div class="stat-card">
           <div class="stat-content">
             <div class="stat-text">
-              <p class="stat-label">教师数量</p>
-              <p class="stat-value">{{ stats.teachers }}</p>
+              <p class="stat-label">讲座总数</p>
+              <p class="stat-value">{{ totalLectures }}</p>
             </div>
-            <div class="stat-icon green">👨‍🏫</div>
+            <div class="stat-icon green">📚</div>
           </div>
         </div>
         
         <div class="stat-card">
           <div class="stat-content">
             <div class="stat-text">
-              <p class="stat-label">学生数量</p>
-              <p class="stat-value">{{ stats.students }}</p>
+              <p class="stat-label">平均参与度</p>
+              <p class="stat-value">{{ averageParticipation }}</p>
             </div>
-            <div class="stat-icon purple">👨‍🎓</div>
+            <div class="stat-icon purple">📊</div>
           </div>
         </div>
         
         <div class="stat-card">
           <div class="stat-content">
             <div class="stat-text">
-              <p class="stat-label">匿名参与</p>
-              <p class="stat-value">{{ stats.anonymous }}</p>
+              <p class="stat-label">最热门讲座</p>
+              <p class="stat-value">{{ mostPopularLecture }}</p>
             </div>
-            <div class="stat-icon orange">👤</div>
+            <div class="stat-icon orange">🔥</div>
           </div>
         </div>
       </div>
@@ -68,29 +68,28 @@
             <span class="search-icon">🔍</span>
             <input
               type="text"
-              placeholder="搜索用户姓名..."
+              placeholder="搜索学生姓名..."
               v-model="searchTerm"
               class="search-input"
             />
           </div>
           
-          <select v-model="roleFilter" class="filter-select">
-            <option value="all">所有角色</option>
-            <option value="teacher">教师</option>
-            <option value="student">学生</option>
-          </select>
-          
-          <select v-model="anonymousFilter" class="filter-select">
-            <option value="all">所有状态</option>
-            <option value="false">实名</option>
-            <option value="true">匿名</option>
+          <select v-model="lectureFilter" class="filter-select">
+            <option value="all">所有讲座</option>
+            <option 
+              v-for="lecture in lectureList" 
+              :key="lecture.id" 
+              :value="lecture.id"
+            >
+              {{ lecture.title }}
+            </option>
           </select>
         </div>
         
         <div class="action-buttons">
           <button @click="openModal('add')" class="btn-primary">
             <span>➕</span>
-            添加参与者
+            添加学生
           </button>
           
           <button
@@ -109,67 +108,89 @@
         </div>
       </div>
 
-      <!-- 数据表格 -->
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>
-                <input
-                  type="checkbox"
-                  :checked="selectedRows.length === data.length && data.length > 0"
-                  @change="handleSelectAll($event.target.checked)"
-                />
-              </th>
-              <th>ID</th>
-              <th>讲座ID</th>
-              <th>用户姓名</th>
-              <th>角色</th>
-              <th>匿名状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-if="loading">
-              <td colspan="7" class="loading-cell">
-                <span class="spinning">🔄</span>
-                <span>加载中...</span>
-              </td>
-            </tr>
-            <tr v-else-if="data.length === 0">
-              <td colspan="7" class="empty-cell">暂无数据</td>
-            </tr>
-            <tr v-else v-for="item in data" :key="item.id" class="data-row">
-              <td>
-                <input
-                  type="checkbox"
-                  :checked="selectedRows.includes(item.id)"
-                  @change="handleSelectRow(item.id, $event.target.checked)"
-                />
-              </td>
-              <td class="font-bold">{{ item.id }}</td>
-              <td>{{ item.lectureId }}</td>
-              <td>{{ item.userName || '未知用户' }}</td>
-              <td>
-                <span :class="item.role === 'teacher' ? 'badge-green' : 'badge-blue'" class="badge">
-                  {{ item.role === 'teacher' ? '教师' : '学生' }}
-                </span>
-              </td>
-              <td>
-                <span :class="item.anonymous ? 'badge-orange' : 'badge-gray'" class="badge">
-                  {{ item.anonymous ? '匿名' : '实名' }}
-                </span>
-              </td>
-              <td>
-                <div class="action-icons">
-                  <button @click="openModal('view', item)" class="icon-btn blue" title="查看详情">👁️</button>
-                  <button @click="openModal('edit', item)" class="icon-btn green" title="编辑">✏️</button>
-                  <button @click="handleDelete(item.id)" class="icon-btn red" title="删除">🗑️</button>
+      <!-- 按讲座分类展示 -->
+      <div class="lectures-container">
+        <div v-if="loading" class="loading-container">
+          <span class="spinning">🔄</span>
+          <span>加载中...</span>
+        </div>
+        
+        <div v-else-if="groupedData.length === 0" class="empty-container">
+          <div class="empty-icon">📭</div>
+          <h3>暂无学生数据</h3>
+          <p>还没有学生参与任何讲座</p>
+        </div>
+        
+        <div v-else>
+          <div 
+            v-for="lectureGroup in groupedData" 
+            :key="lectureGroup.lectureId" 
+            class="lecture-group"
+          >
+            <!-- 讲座标题 -->
+            <div class="lecture-header">
+              <div class="lecture-info">
+                <h3 class="lecture-title">
+                  📚 {{ getLectureName(lectureGroup.lectureId) }}
+                  <span class="lecture-id">ID: {{ lectureGroup.lectureId }}</span>
+                </h3>
+                <p class="student-count">{{ lectureGroup.students.length }} 名学生</p>
+              </div>
+              <div class="lecture-actions">
+                <button 
+                  @click="toggleLectureExpanded(lectureGroup.lectureId)"
+                  class="expand-btn"
+                >
+                  <span v-if="expandedLectures.includes(lectureGroup.lectureId)">📁</span>
+                  <span v-else>📂</span>
+                  {{ expandedLectures.includes(lectureGroup.lectureId) ? '收起' : '展开' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 学生列表 -->
+            <div v-if="expandedLectures.includes(lectureGroup.lectureId)" class="students-container">
+              <div class="students-grid">
+                <div 
+                  v-for="student in lectureGroup.students" 
+                  :key="student.id"
+                  class="student-card"
+                  :class="{ 'selected': selectedRows.includes(student.id) }"
+                >
+                  <div class="student-card-header">
+                    <input
+                      type="checkbox"
+                      :checked="selectedRows.includes(student.id)"
+                      @change="handleSelectRow(student.id, $event.target.checked)"
+                      class="student-checkbox"
+                    />
+                    <div class="student-avatar">
+                      {{ getStudentInitials(student.userName) }}
+                    </div>
+                  </div>
+                  
+                  <div class="student-info">
+                    <h4 class="student-name">{{ student.userName || '未知学生' }}</h4>
+                    <p class="student-id">ID: {{ student.id }}</p>
+                    <p class="user-id">用户ID: {{ student.userId }}</p>
+                  </div>
+                  
+                  <div class="student-actions">
+                    <button @click="openModal('view', student)" class="action-btn view" title="查看详情">👁️</button>
+                    <button @click="openModal('edit', student)" class="action-btn edit" title="编辑">✏️</button>
+                    <button @click="handleDelete(student.id)" class="action-btn delete" title="删除">🗑️</button>
+                  </div>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+              </div>
+              
+              <!-- 如果该讲座没有学生 -->
+              <div v-if="lectureGroup.students.length === 0" class="no-students">
+                <div class="no-students-icon">👤</div>
+                <p>该讲座暂无学生参与</p>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 分页 -->
@@ -212,64 +233,51 @@
     <div v-if="showModal" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
-          <h3>{{ modalMode === 'add' ? '添加参与者' : modalMode === 'edit' ? '编辑参与者' : '查看详情' }}</h3>
+          <h3>{{ modalMode === 'add' ? '添加学生' : modalMode === 'edit' ? '编辑学生信息' : '学生详情' }}</h3>
           <button @click="showModal = false" class="close-btn">✕</button>
         </div>
         
         <div class="modal-body">
           <div class="form-group">
-            <label>讲座ID</label>
-            <input
-              type="number"
+            <label>讲座</label>
+            <select
+              v-if="modalMode !== 'view'"
               v-model="formData.lectureId"
-              :disabled="modalMode === 'view'"
               class="form-input"
-            />
+            >
+              <option value="">请选择讲座</option>
+              <option 
+                v-for="lecture in lectureList" 
+                :key="lecture.id" 
+                :value="lecture.id"
+              >
+                {{ lecture.title }}
+              </option>
+            </select>
+            <div v-else class="view-field">
+              {{ getLectureName(formData.lectureId) }}
+            </div>
           </div>
           
           <div class="form-group">
-            <label>选择用户</label>
+            <label>选择学生</label>
             <select
               v-if="modalMode !== 'view'"
               v-model="formData.userId"
               class="form-input"
             >
-              <option value="">请选择用户</option>
+              <option value="">请选择学生</option>
               <option 
-                v-for="user in userList" 
+                v-for="user in studentUserList" 
                 :key="user.id" 
                 :value="user.id"
               >
                 {{ user.realName || user.name }}
               </option>
             </select>
-            <!-- 查看模式显示用户姓名 -->
             <div v-else class="view-field">
               {{ getUserNameById(formData.userId) }}
             </div>
-          </div>
-          
-          <div class="form-group">
-            <label>角色</label>
-            <select
-              v-model="formData.role"
-              :disabled="modalMode === 'view'"
-              class="form-input"
-            >
-              <option value="student">学生</option>
-              <option value="teacher">教师</option>
-            </select>
-          </div>
-          
-          <div class="checkbox-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                v-model="formData.anonymous"
-                :disabled="modalMode === 'view'"
-              />
-              <span>匿名参与</span>
-            </label>
           </div>
           
           <div v-if="modalMode !== 'view'" class="modal-actions">
@@ -287,41 +295,78 @@
 
 <script>
 export default {
-  name: 'LectureParticipantsManagement',
+  name: 'LectureStudentsManagement',
   data() {
     return {
       data: [],
       loading: false,
       selectedRows: [],
       currentPage: 1,
-      pageSize: 10,
+      pageSize: 20,
       totalPages: 0,
       totalRecords: 0,
       searchTerm: '',
-      roleFilter: 'all',
-      anonymousFilter: 'all',
       lectureFilter: 'all',
       showModal: false,
       modalMode: 'add',
       currentRecord: null,
       notification: null,
-      userList: [], // 用户列表
+      userList: [],
+      lectureList: [],
+      expandedLectures: [], // 展开的讲座列表
       formData: {
         lectureId: '',
         userId: '',
-        role: 'student',
-        anonymous: false  // 修改为布尔值
+        role: 'student' // 固定为学生
       }
     }
   },
   computed: {
-    stats() {
-      const teachers = this.data.filter(item => item.role === 'teacher').length
-      const students = this.data.filter(item => item.role === 'student').length
-      // 修复：直接使用布尔值判断
-      const anonymous = this.data.filter(item => item.anonymous === true).length
+    // 按讲座ID分组的数据
+    groupedData() {
+      const filteredData = this.getFilteredData()
+      const groups = {}
       
-      return { teachers, students, anonymous }
+      filteredData.forEach(student => {
+        const lectureId = student.lectureId
+        if (!groups[lectureId]) {
+          groups[lectureId] = {
+            lectureId: lectureId,
+            students: []
+          }
+        }
+        groups[lectureId].students.push(student)
+      })
+      
+      // 转换为数组并按讲座ID排序
+      return Object.values(groups).sort((a, b) => a.lectureId - b.lectureId)
+    },
+
+    // 只返回学生用户
+    studentUserList() {
+      return this.userList.filter(user => !user.userType || user.userType === 'student')
+    },
+
+    // 统计信息
+    totalStudents() {
+      return this.data.length
+    },
+
+    totalLectures() {
+      return new Set(this.data.map(item => item.lectureId)).size
+    },
+
+    averageParticipation() {
+      if (this.totalLectures === 0) return '0'
+      return Math.round(this.totalStudents / this.totalLectures)
+    },
+
+    mostPopularLecture() {
+      if (this.groupedData.length === 0) return 'N/A'
+      const mostPopular = this.groupedData.reduce((max, current) => 
+        current.students.length > max.students.length ? current : max
+      )
+      return mostPopular.students.length
     }
   },
   watch: {
@@ -333,24 +378,17 @@ export default {
     },
     searchTerm() {
       this.currentPage = 1
-      this.loadData()
-    },
-    roleFilter() {
-      this.currentPage = 1
-      this.loadData()
-    },
-    anonymousFilter() {
-      this.currentPage = 1
-      this.loadData()
+      // 搜索在前端进行，不需要重新加载数据
     },
     lectureFilter() {
       this.currentPage = 1
-      this.loadData()
+      // 过滤在前端进行，不需要重新加载数据
     }
   },
   mounted() {
     this.loadData()
     this.loadUserList()
+    this.loadLectureList()
   },
   methods: {
     // API基础URL
@@ -358,20 +396,55 @@ export default {
       return 'http://localhost:5555/lecture-participants'
     },
 
-    // 用户API基础URL
     getUserApiUrl() {
       return 'http://localhost:5555/user'
     },
 
-    // 统一布尔值转换工具方法
-    normalizeBoolean(value) {
-      if (typeof value === 'boolean') {
-        return value
+    getLectureApiUrl() {
+      return 'http://localhost:5555/lecture'
+    },
+
+    // 获取过滤后的数据
+    getFilteredData() {
+      let filtered = this.data
+      
+      // 搜索过滤
+      if (this.searchTerm) {
+        const term = this.searchTerm.toLowerCase()
+        filtered = filtered.filter(item => 
+          (item.userName || '').toLowerCase().includes(term)
+        )
       }
-      if (typeof value === 'string') {
-        return value.toLowerCase() === 'true'
+      
+      // 讲座过滤
+      if (this.lectureFilter !== 'all') {
+        filtered = filtered.filter(item => item.lectureId == this.lectureFilter)
       }
-      return Boolean(value)
+      
+      return filtered
+    },
+
+    // 获取学生姓名首字母
+    getStudentInitials(name) {
+      if (!name) return '?'
+      const names = name.split('')
+      return names[0].toUpperCase()
+    },
+
+    // 切换讲座展开状态
+    toggleLectureExpanded(lectureId) {
+      const index = this.expandedLectures.indexOf(lectureId)
+      if (index > -1) {
+        this.expandedLectures.splice(index, 1)
+      } else {
+        this.expandedLectures.push(lectureId)
+      }
+    },
+
+    // 根据讲座ID获取讲座名称
+    getLectureName(lectureId) {
+      const lecture = this.lectureList.find(l => l.id == lectureId)
+      return lecture ? lecture.title : `讲座 ${lectureId}`
     },
 
     // 根据用户ID获取用户姓名
@@ -383,18 +456,15 @@ export default {
     // 获取用户信息
     async getUserById(userId) {
       try {
-        const response = await fetch(`${this.getUserApiUrl()}/get/${userId}`);
-        
+        const response = await fetch(`${this.getUserApiUrl()}/get/${userId}`)
         if (response.ok) {
-          const data = await response.json();
-          console.log('用户数据:', data);
-          return data;
+          const data = await response.json()
+          return data
         }
-        
-        return null;
+        return null
       } catch (error) {
-        console.error(`获取用户${userId}信息失败:`, error);
-        return null;
+        console.error(`获取用户${userId}信息失败:`, error)
+        return null
       }
     },
 
@@ -412,25 +482,33 @@ export default {
       }
     },
 
+    // 获取讲座列表
+    async loadLectureList() {
+      try {
+        const response = await fetch(`${this.getLectureApiUrl()}/list`)
+        if (response.ok) {
+          this.lectureList = await response.json()
+          console.log('讲座列表:', this.lectureList)
+          
+          // 默认展开前3个讲座
+          this.expandedLectures = this.lectureList.slice(0, 3).map(l => l.id)
+        }
+      } catch (error) {
+        console.error('获取讲座列表失败:', error)
+        this.lectureList = []
+      }
+    },
+
     // 构建查询条件
     buildConditions() {
-      const conditions = {}
-      
-      if (this.searchTerm) {
-        conditions.searchTerm = this.searchTerm
+      const conditions = {
+        role: 'student' // 只查询学生
       }
       
-      if (this.roleFilter !== 'all') {
-        conditions.role = this.roleFilter
-      }
-      
-      if (this.anonymousFilter !== 'all') {
-        conditions.anonymous = this.anonymousFilter
-      }
-      
-      if (this.lectureFilter !== 'all') {
-        conditions.lectureId = parseInt(this.lectureFilter)
-      }
+      // 后端搜索暂时移除，在前端进行
+      // if (this.searchTerm) {
+      //   conditions.searchTerm = this.searchTerm
+      // }
       
       return conditions
     },
@@ -458,10 +536,13 @@ export default {
         console.log('原始数据:', result.records)
         
         if (result && result.records) {
-          // 提取所有唯一的用户ID，避免重复查询
-          const uniqueUserIds = [...new Set(result.records.map(item => item.userId))]
+          // 过滤掉教师，只保留学生
+          const studentRecords = result.records.filter(item => item.role === 'student')
           
-          // 批量获取用户信息（并行请求）
+          // 提取所有唯一的用户ID
+          const uniqueUserIds = [...new Set(studentRecords.map(item => item.userId))]
+          
+          // 批量获取用户信息
           const userPromises = uniqueUserIds.map(userId => this.getUserById(userId))
           const users = await Promise.all(userPromises)
           
@@ -472,19 +553,17 @@ export default {
             userMap[userId] = user || { id: userId, name: `用户${userId}` }
           })
           
-          // 将用户姓名添加到数据中，并统一anonymous字段类型
-          const dataWithUserNames = result.records.map(item => ({
+          // 将用户姓名添加到数据中
+          const dataWithUserNames = studentRecords.map(item => ({
             ...item,
-            userName: userMap[item.userId].realName || userMap[item.userId].name,
-            // 关键修复：统一转换为布尔值
-            anonymous: this.normalizeBoolean(item.anonymous)
+            userName: userMap[item.userId].realName || userMap[item.userId].name
           }))
           
-          console.log('处理后的数据:', dataWithUserNames)
+          console.log('处理后的学生数据:', dataWithUserNames)
           
           this.data = dataWithUserNames
-          this.totalPages = result.pages || 0
-          this.totalRecords = result.total || 0
+          this.totalPages = Math.ceil(dataWithUserNames.length / this.pageSize)
+          this.totalRecords = dataWithUserNames.length
         } else {
           this.data = []
           this.totalPages = 0
@@ -512,17 +591,16 @@ export default {
     // 处理表单提交
     async handleSubmit() {
       if (!this.formData.lectureId || !this.formData.userId) {
-        this.showNotification('请填写完整信息并选择用户', 'error')
+        this.showNotification('请填写完整信息并选择学生', 'error')
         return
       }
       
       this.loading = true
       
       try {
-        // 确保发送给后端的数据类型正确
         const submitData = {
           ...this.formData,
-          anonymous: this.normalizeBoolean(this.formData.anonymous)
+          role: 'student' // 固定为学生
         }
         
         console.log('提交数据:', submitData)
@@ -560,15 +638,14 @@ export default {
       this.formData = {
         lectureId: '',
         userId: '',
-        role: 'student',
-        anonymous: false  // 改为布尔值
+        role: 'student'
       }
       this.currentRecord = null
     },
 
     // 处理删除
     async handleDelete(id) {
-      if (!confirm('确定要删除这条记录吗？')) return
+      if (!confirm('确定要删除这个学生记录吗？')) return
       
       this.loading = true
       try {
@@ -593,7 +670,7 @@ export default {
         return
       }
       
-      if (!confirm(`确定要删除选中的 ${this.selectedRows.length} 条记录吗？`)) return
+      if (!confirm(`确定要删除选中的 ${this.selectedRows.length} 条学生记录吗？`)) return
       
       this.loading = true
       try {
@@ -622,30 +699,19 @@ export default {
         this.formData = {
           lectureId: record.lectureId,
           userId: record.userId,
-          role: record.role,
-          anonymous: this.normalizeBoolean(record.anonymous)  // 统一转换
+          role: 'student'
         }
       } else if (mode === 'view' && record) {
         this.formData = {
           lectureId: record.lectureId,
           userId: record.userId,
-          role: record.role,
-          anonymous: this.normalizeBoolean(record.anonymous)  // 统一转换
+          role: 'student'
         }
       } else if (mode === 'add') {
         this.resetForm()
       }
       
       this.showModal = true
-    },
-
-    // 处理全选
-    handleSelectAll(checked) {
-      if (checked) {
-        this.selectedRows = this.data.map(item => item.id)
-      } else {
-        this.selectedRows = []
-      }
     },
 
     // 处理单选
@@ -661,7 +727,7 @@ export default {
 </script>
 
 <style scoped>
-/* 基础容器 */
+/* 基础容器样式保持不变 */
 .container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
@@ -669,11 +735,10 @@ export default {
 }
 
 .main-content {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
 }
 
-/* 通知消息 */
 .notification {
   position: fixed;
   top: 16px;
@@ -733,7 +798,7 @@ export default {
   margin: 0;
 }
 
-/* 统计卡片 */
+/* 统计卡片样式保持不变 */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -784,7 +849,7 @@ export default {
 .stat-icon.purple { background: #f3e8ff; color: #9333ea; }
 .stat-icon.orange { background: #fed7aa; color: #ea580c; }
 
-/* 工具栏 */
+/* 工具栏样式 */
 .toolbar {
   background: white;
   border-radius: 12px;
@@ -839,12 +904,6 @@ export default {
   background: white;
 }
 
-.filter-select:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
 .action-buttons {
   display: flex;
   gap: 12px;
@@ -883,10 +942,6 @@ export default {
   transition: all 0.2s;
 }
 
-.btn-danger:hover {
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
-}
-
 .btn-secondary {
   background: #f3f4f6;
   color: #374151;
@@ -901,104 +956,207 @@ export default {
   transition: all 0.2s;
 }
 
-.btn-secondary:hover {
-  background: #e5e7eb;
+/* 讲座容器 */
+.lectures-container {
+  margin-bottom: 32px;
 }
 
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 表格 */
-.table-container {
+.loading-container, .empty-container {
   background: white;
   border-radius: 12px;
-  overflow: hidden;
+  padding: 48px;
+  text-align: center;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
 }
 
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.data-table th {
-  background: #f8fafc;
-  padding: 16px;
-  text-align: left;
-  font-weight: 600;
-  color: #374151;
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.data-table td {
-  padding: 16px;
-  border-bottom: 1px solid #f3f4f6;
-  font-size: 14px;
-  color: #1f2937;
-}
-
-.data-row:hover {
-  background: #f8fafc;
-}
-
-.font-bold {
-  font-weight: 600;
-}
-
-.loading-cell, .empty-cell {
-  text-align: center;
-  padding: 48px 16px;
-  color: #6b7280;
-}
-
-.loading-cell {
+.loading-container {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 12px;
+  color: #6b7280;
+}
+
+.empty-container {
+  color: #6b7280;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.empty-container h3 {
+  margin: 0 0 8px 0;
+  color: #374151;
+}
+
+/* 讲座分组 */
+.lecture-group {
+  background: white;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  overflow: hidden;
+}
+
+.lecture-header {
+  background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.lecture-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-/* 徽章 */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 9999px;
+.lecture-id {
   font-size: 12px;
-  font-weight: 500;
+  font-weight: normal;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 2px 8px;
+  border-radius: 12px;
 }
 
-.badge-green { background: #dcfce7; color: #16a34a; }
-.badge-blue { background: #dbeafe; color: #2563eb; }
-.badge-orange { background: #fed7aa; color: #ea580c; }
-.badge-gray { background: #f3f4f6; color: #374151; }
+.student-count {
+  font-size: 14px;
+  color: #6b7280;
+  margin: 0;
+}
 
-/* 操作图标 */
-.action-icons {
+.expand-btn {
+  background: #f3f4f6;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.expand-btn:hover {
+  background: #e5e7eb;
+}
+
+/* 学生容器 */
+.students-container {
+  padding: 24px;
+}
+
+.students-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.student-card {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.student-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.student-card.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+}
+
+.student-card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.student-checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.student-avatar {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.student-info {
+  margin-bottom: 12px;
+}
+
+.student-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0 0 4px 0;
+}
+
+.student-id, .user-id {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.student-actions {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
 }
 
-.icon-btn {
+.action-btn {
   background: none;
   border: none;
   cursor: pointer;
   padding: 4px;
   border-radius: 4px;
   transition: all 0.2s;
+  font-size: 14px;
 }
 
-.icon-btn.blue:hover { background: #dbeafe; }
-.icon-btn.green:hover { background: #dcfce7; }
-.icon-btn.red:hover { background: #fee2e2; }
+.action-btn.view:hover { background: #dbeafe; }
+.action-btn.edit:hover { background: #dcfce7; }
+.action-btn.delete:hover { background: #fee2e2; }
 
-/* 分页 */
+.no-students {
+  text-align: center;
+  padding: 32px;
+  color: #6b7280;
+}
+
+.no-students-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+/* 分页样式保持不变 */
 .pagination {
   background: white;
   border-radius: 12px;
@@ -1055,7 +1213,7 @@ export default {
   border-color: #3b82f6;
 }
 
-/* 模态框 */
+/* 模态框样式保持不变 */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1126,28 +1284,6 @@ export default {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-.form-input:disabled {
-  background: #f9fafb;
-  color: #6b7280;
-}
-
-.checkbox-group {
-  margin-bottom: 20px;
-}
-
-.checkbox-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  color: #374151;
-}
-
-.checkbox-label input[type="checkbox"] {
-  width: auto;
-}
-
 .view-field {
   padding: 8px 12px;
   background: #f9fafb;
@@ -1200,8 +1336,14 @@ export default {
     justify-content: center;
   }
   
-  .pagination {
+  .lecture-header {
     flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+  
+  .students-grid {
+    grid-template-columns: 1fr;
   }
   
   .stats-grid {
