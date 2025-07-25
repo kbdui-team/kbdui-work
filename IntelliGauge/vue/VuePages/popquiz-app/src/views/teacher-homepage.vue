@@ -145,14 +145,6 @@
               </div>
               <div 
                 class="menu-item"
-                :class="{ active: activeItem === 'notifications' }"
-                @click="navigateTo('notifications')"
-              >
-                <el-icon><Bell /></el-icon>
-                <span>通知设置</span>
-              </div>
-              <div 
-                class="menu-item"
                 @click="handleLogout"
               >
                 <el-icon><SwitchButton /></el-icon>
@@ -269,7 +261,6 @@
       'ranking': '排行榜',
       'progress': '学习进度',
       'changeInfo': '个人设置',
-      'notifications': '通知设置'
     }
     return titleMap[activeItem.value] || '个人中心'
   })
