@@ -12,6 +12,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/user-preferences")
 @Slf4j
+@CrossOrigin
 public class UserPreferencesController {
     @Resource
     private UserPreferencesService userPreferencesService;
