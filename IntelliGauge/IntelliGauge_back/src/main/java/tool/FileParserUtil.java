@@ -4,8 +4,12 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.hslf.usermodel.HSLFSlideShow;
 import org.apache.poi.hslf.usermodel.HSLFTextShape;
+import org.apache.poi.hwpf.HWPFDocument;
+import org.apache.poi.hwpf.extractor.WordExtractor;
 import org.apache.poi.xslf.usermodel.XMLSlideShow;
 import org.apache.poi.xslf.usermodel.XSLFTextShape;
+import org.apache.poi.xwpf.usermodel.XWPFDocument;
+import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.BufferedReader;
@@ -41,6 +45,10 @@ public class FileParserUtil {
                     return parseLegacyPpt(inputStream);
                 case "pptx":
                     return parsePptx(inputStream);
+                case "doc":
+                    return parseDoc(inputStream);
+                case "docx":
+                    return parseDocx(inputStream);
                 case "txt":
                 case "md":
                 case "html":
@@ -49,6 +57,27 @@ public class FileParserUtil {
                     throw new IllegalArgumentException("不支持的文件格式: " + extension);
             }
         }
+    }
+
+    // 处理word文件格式
+    private static String parseDoc(InputStream inputStream) throws IOException {
+        StringBuilder content = new StringBuilder();
+        try (HWPFDocument document = new HWPFDocument(inputStream)) {
+            WordExtractor extractor = new WordExtractor(document);
+            String text = extractor.getText();
+            content.append(text);
+        }
+        return content.toString();
+    }
+
+    private static String parseDocx(InputStream inputStream) throws IOException {
+        StringBuilder content = new StringBuilder();
+        try (XWPFDocument document = new XWPFDocument(inputStream)) {
+            for (XWPFParagraph paragraph : document.getParagraphs()) {
+                content.append(paragraph.getText()).append("\n");
+            }
+        }
+        return content.toString();
     }
 
     // 文本文件解析
