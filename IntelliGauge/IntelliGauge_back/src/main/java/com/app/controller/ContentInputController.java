@@ -21,7 +21,7 @@ public class ContentInputController {
      * 添加内容输入信息
      */
     @PostMapping("/add")
-    public boolean addContentInput(@RequestBody ContentInputDTO contentInput) {
+    public Integer addContentInput(@RequestBody ContentInputDTO contentInput) {
         return contentInputService.addContentInput(contentInput);
     }
 

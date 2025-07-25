@@ -38,7 +38,7 @@
             </div>
             <div
               class="bar-week"
-              :class="{ today: idx === todayIndex }"
+              :class="{ today: item.isToday }"
             >
               {{ item.day }}
             </div>
@@ -138,32 +138,44 @@ async function fetchWeekTrendAndDays() {
     if (Array.isArray(list)) {
       // 只取当前用户的答题
       const myList = list.filter((item: any) => item.userId === userId)
-      // 统计一周内每天的答题数
+      // 生成最近一周的日期字符串数组（yyyy-mm-dd），从最早到今天
+      function getLocalDateStr(date: Date) {
+        return date.getFullYear() + '-' +
+          String(date.getMonth() + 1).padStart(2, '0') + '-' +
+          String(date.getDate()).padStart(2, '0')
+      }
       const now = new Date()
+      const todayStr = getLocalDateStr(now)
+      const weekDateStrs: string[] = []
+      for (let i = 0; i < 7; i++) {
+        const d = new Date()
+        d.setDate(now.getDate() - (6 - i)) // 0是最早，6是今天
+        weekDateStrs.push(getLocalDateStr(d))
+      }
       const weekArr = Array(7).fill(0)
-      // 记录所有答题日期
       const dateSet = new Set<string>()
       myList.forEach((item: any) => {
         if (!item.answerTime) return
         const d = new Date(item.answerTime)
-        const diff = Math.floor((now.getTime() - d.getTime()) / (24 * 3600 * 1000))
-        if (diff >= 0 && diff < 7) {
-          // 0为今天，6为6天前
-          const dayIdx = (todayIndex - diff + 7) % 7
-          weekArr[dayIdx]++
+        const dateStr = getLocalDateStr(d)
+        const idx = weekDateStrs.indexOf(dateStr)
+        if (idx !== -1) {
+          weekArr[idx]++
         }
-        // 记录日期字符串
-        const dateStr = d.toISOString().slice(0, 10)
         dateSet.add(dateStr)
       })
-      // 填充weekData
-      weekData.value = jsDayToZh.map((day, idx) => ({ day, count: weekArr[idx] }))
+      // 填充weekData，保证周一到周日顺序，并标记今天
+      weekData.value = weekDateStrs.map((dateStr, idx) => ({
+        day: jsDayToZh[(now.getDay() - 6 + idx + 7) % 7],
+        count: weekArr[idx],
+        isToday: dateStr === todayStr
+      }))
       // 连续天数统计
       let days = 0
       for (let i = 0; i < 30; i++) { // 最多查30天
         const d = new Date()
-        d.setDate(d.getDate() - i)
-        const dateStr = d.toISOString().slice(0, 10)
+        d.setDate(now.getDate() - i)
+        const dateStr = getLocalDateStr(d)
         if (dateSet.has(dateStr)) {
           days++
         } else {

@@ -17,13 +17,13 @@
           </div>
           
           <div class="info-list">
-            <div class="info-item">
+            <!-- <div class="info-item">
               <el-icon class="info-icon"><School /></el-icon>
               <div class="info-content">
                 <span class="info-label">办公室</span>
                 <span class="info-value">{{ userInfo.class }}</span>
               </div>
-            </div>
+            </div> -->
             <div class="info-item">
               <el-icon class="info-icon"><Postcard /></el-icon>
               <div class="info-content">
@@ -220,7 +220,7 @@
   } from '@element-plus/icons-vue'
   
   const router = useRouter()
-  const activeItem = ref('quiz')
+  const activeItem = ref('Collection')
   
   // 用户信息数据，初始为空
   const userInfo = reactive({

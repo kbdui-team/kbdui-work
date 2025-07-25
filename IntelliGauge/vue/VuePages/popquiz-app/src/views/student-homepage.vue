@@ -17,13 +17,13 @@
           </div>
           
           <div class="info-list">
-            <div class="info-item">
+            <!-- <div class="info-item">
               <el-icon class="info-icon"><School /></el-icon>
               <div class="info-content">
                 <span class="info-label">班级</span>
                 <span class="info-value">{{ userInfo.class }}</span>
               </div>
-            </div>
+            </div> -->
             <div class="info-item">
               <el-icon class="info-icon"><Postcard /></el-icon>
               <div class="info-content">
@@ -48,27 +48,27 @@
               </div>
             </div>
             
-            <div class="info-item">
+            <!-- <div class="info-item">
               <el-icon class="info-icon"><Calendar /></el-icon>
               <div class="info-content">
                 <span class="info-label">入学时间</span>
                 <span class="info-value">{{ userInfo.enrollmentDate }}</span>
               </div>
-            </div>
+            </div> -->
           </div>
           
           <div class="user-stats">
             <div class="stat-item">
-              <div class="stat-number">{{ userInfo.stats.completedQuizzes }}</div>
-              <div class="stat-label">已完成测试</div>
+              <div class="stat-number">{{ stat.answeredCount }}</div>
+              <div class="stat-label">已完成题数</div>
             </div>
             <div class="stat-item">
-              <div class="stat-number">{{ userInfo.stats.averageScore }}%</div>
-              <div class="stat-label">平均得分</div>
+              <div class="stat-number">{{ stat.accuracy }}%</div>
+              <div class="stat-label">正确率</div>
             </div>
             <div class="stat-item">
-              <div class="stat-number">{{ userInfo.stats.rank }}</div>
-              <div class="stat-label">班级排名</div>
+              <div class="stat-number">{{ stat.totalCount }}</div>
+              <div class="stat-label">总题数</div>
             </div>
           </div>
         </div>
@@ -105,14 +105,14 @@
                 <span>错题回顾</span>
               </div>
 
-              <div 
+              <!-- <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'orator_result' }"
                 @click="navigateTo('orator_result')"
               >
                 <el-icon><View /></el-icon>
                 <span>练习结果</span>
-              </div>
+              </div> -->
             </div>
           </div>
           
@@ -165,14 +165,14 @@
                 <el-icon><User /></el-icon>
                 <span>个人设置</span>
               </div>
-              <div 
+              <!-- <div 
                 class="menu-item"
                 :class="{ active: activeItem === 'notifications' }"
                 @click="navigateTo('notifications')"
               >
                 <el-icon><Bell /></el-icon>
                 <span>通知设置</span>
-              </div>
+              </div> -->
               <div 
                 class="menu-item"
                 @click="handleLogout"
@@ -214,7 +214,7 @@
           @back-to-home="handleBackToHome"
           @quiz-complete="handleQuizComplete"
         />
-        <component :is="WrongReview.default" v-else-if="activeItem === 'review'" :student-id="userInfo.studentId" />
+        <component :is="WrongReview.default" v-else-if="activeItem === 'review'" :student-id="userInfo.studentId" :lecture-id="0" />
         <component :is="Ranking.default" v-else-if="activeItem === 'ranking'" />
         <component :is="StudyProgress.default" v-else-if="activeItem === 'progress'" />
         <router-view v-else />
@@ -242,6 +242,7 @@ import * as WrongReview from './WrongReview.vue'
 import * as Ranking from './Ranking.vue'
 import * as StudyProgress from './StudyProgress.vue'
 import axios from 'axios'
+import request from '@/utils/request'
 
 const router = useRouter()
 const activeItem = ref('quiz')
@@ -345,6 +346,35 @@ async function fetchStudentStats() {
   } catch {}
 }
 
+const stat = ref({
+  answeredCount: 0,
+  correctCount: 0,
+  totalCount: 0,
+  accuracy: 0
+})
+
+function getCurrentUserId() {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      return user.id
+    }
+  } catch {}
+  return null
+}
+
+async function fetchStat() {
+  const userId = getCurrentUserId()
+  if (!userId) return
+  const res = await request.get(`/answerHistory/student/${userId}/lecture/0/stat`)
+  const data = res.data
+  stat.value.answeredCount = data.answeredCount || 0
+  stat.value.correctCount = data.correctCount || 0
+  stat.value.totalCount = data.totalCount || 0
+  stat.value.accuracy = data.answeredCount ? Math.round((data.correctCount / data.answeredCount) * 100) : 0
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('currentUser')
   if (userStr) {
@@ -373,6 +403,7 @@ onMounted(() => {
   }
   fetchQuizCount()
   fetchStudentStats()
+  fetchStat()
 })
   
   // 当前答题数据
