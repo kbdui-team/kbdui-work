@@ -13,10 +13,10 @@
           </div>
         </div>
         <div class="header-actions">
-          <el-button type="primary" size="large" @click="openQuestionDialog()" :disabled="!selectedContent" class="primary-btn">
+          <!-- <el-button type="primary" size="large" @click="openQuestionDialog()" :disabled="!selectedContent" class="primary-btn">
             <el-icon><Plus /></el-icon>
             新建题目
-          </el-button>
+          </el-button> -->
           <el-button size="large" @click="loadData" :loading="loading" class="refresh-btn">
             <el-icon><Refresh /></el-icon>
             刷新数据
@@ -245,11 +245,13 @@
                   </el-tooltip>
                   <el-tooltip content="编辑题目" placement="top">
                     <el-button size="small" circle @click="editQuestion(question)" class="action-btn edit-btn">
+                    <!-- <el-button size="small" circle @click="" class="action-btn edit-btn"> -->
                       <el-icon><Edit /></el-icon>
                     </el-button>
                   </el-tooltip>
                   <el-tooltip content="删除题目" placement="top">
                     <el-button size="small" circle @click="deleteQuestion(question.id)" class="action-btn delete-btn">
+                    <!-- <el-button size="small" circle @click="" class="action-btn delete-btn"> -->
                       <el-icon><Delete /></el-icon>
                     </el-button>
                   </el-tooltip>
@@ -1018,26 +1020,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  max-height: 420px;
 }
 
 .lecture-list::-webkit-scrollbar,
 .content-list::-webkit-scrollbar,
 .question-list::-webkit-scrollbar {
-  width: 6px;
-}
-
-.lecture-list::-webkit-scrollbar-track,
-.content-list::-webkit-scrollbar-track,
-.question-list::-webkit-scrollbar-track {
+  width: 8px;
   background: #f1f1f1;
-  border-radius: 3px;
+  border-radius: 4px;
 }
-
 .lecture-list::-webkit-scrollbar-thumb,
 .content-list::-webkit-scrollbar-thumb,
 .question-list::-webkit-scrollbar-thumb {
   background: #c1c1c1;
-  border-radius: 3px;
+  border-radius: 4px;
+}
+.lecture-list::-webkit-scrollbar-thumb:hover,
+.content-list::-webkit-scrollbar-thumb:hover,
+.question-list::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
 }
 
 /* 通用卡片样式 */
