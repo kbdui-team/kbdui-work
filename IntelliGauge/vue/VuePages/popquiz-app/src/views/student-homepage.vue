@@ -91,7 +91,7 @@
               >
                 <el-icon><EditPen /></el-icon>
                 <span>在线答题</span>
-                <el-badge :value="3" class="item-badge" />
+                <el-badge :value="quizCount" class="item-badge" />
               </div>
 
         
@@ -241,6 +241,7 @@ import * as QuizComponent from '../components/QuizComponent.vue' // 引入答题
 import * as WrongReview from './WrongReview.vue'
 import * as Ranking from './Ranking.vue'
 import * as StudyProgress from './StudyProgress.vue'
+import axios from 'axios'
 
 const router = useRouter()
 const activeItem = ref('quiz')
@@ -267,7 +268,83 @@ const userInfo = reactive({
   }
 })
 
-// 页面挂载时从localStorage获取用户信息
+// 新增：可答题目数量
+const quizCount = ref(0)
+
+// 获取可答题目数量
+async function fetchQuizCount() {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    let userId = null
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        userId = user.id
+      } catch {}
+    }
+    // 获取所有题目和所有答题记录
+    const [qRes, aRes] = await Promise.all([
+      axios.get('/question/list'),
+      axios.get('/answerHistory/list')
+    ])
+    const qList = Array.isArray(qRes.data) ? qRes.data : []
+    const aList = Array.isArray(aRes.data) ? aRes.data : []
+    let answeredIds = []
+    if (userId !== null) {
+      answeredIds = aList.filter((item: any) => item.userId === userId).map((item: any) => item.questionId)
+    }
+    quizCount.value = qList.filter((q: any) => !answeredIds.includes(q.id)).length
+  } catch (e) {
+    quizCount.value = 0
+  }
+}
+
+// 新增：动态统计学生数据
+async function fetchStudentStats() {
+  try {
+    const userStr = localStorage.getItem('currentUser')
+    let userId = null
+    let userClass = ''
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        userId = user.id
+        userClass = user.class || ''
+      } catch {}
+    }
+    if (!userId) return
+    // 获取所有答题记录和所有用户
+    const [aRes, uRes] = await Promise.all([
+      axios.get('/answerHistory/list'),
+      axios.get('/user/list')
+    ])
+    const aList = Array.isArray(aRes.data) ? aRes.data : []
+    const uList = Array.isArray(uRes.data) ? uRes.data : []
+    // 1. 本人答题记录
+    const myAnswers = aList.filter((item: any) => item.userId === userId)
+    // 2. 已完成测试数
+    userInfo.stats.completedQuizzes = myAnswers.length
+    // 3. 平均得分（假设 isCorrect 字段 1为对 0为错，每题100分）
+    if (myAnswers.length > 0) {
+      const correctCount = myAnswers.filter((item: any) => item.isCorrect === 1).length
+      userInfo.stats.averageScore = Math.round((correctCount / myAnswers.length) * 100)
+    } else {
+      userInfo.stats.averageScore = 0
+    }
+    // 4. 班级排名（按平均得分降序）
+    const classmates = uList.filter((u: any) => u.class === userClass && u.userType === 'student')
+    const classStats = classmates.map((stu: any) => {
+      const stuAnswers = aList.filter((item: any) => item.userId === stu.id)
+      const correct = stuAnswers.filter((item: any) => item.isCorrect === 1).length
+      const avg = stuAnswers.length > 0 ? correct / stuAnswers.length : 0
+      return { id: stu.id, avg }
+    })
+    classStats.sort((a, b) => b.avg - a.avg)
+    const myRank = classStats.findIndex(s => s.id === userId)
+    userInfo.stats.rank = myRank >= 0 ? myRank + 1 : 0
+  } catch {}
+}
+
 onMounted(() => {
   const userStr = localStorage.getItem('currentUser')
   if (userStr) {
@@ -294,6 +371,8 @@ onMounted(() => {
       }
     } catch {}
   }
+  fetchQuizCount()
+  fetchStudentStats()
 })
   
   // 当前答题数据
